@@ -1,0 +1,78 @@
+# Sesotho translations for Lehae project
+# Copyright (C) 2025 Lehae Team
+# This file is distributed under the same license as the Lehae package.
+# StiffLobster <stifflobster@example.com>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Lehae 1.0\n"
+"Report-Msgid-Bugs-To: stifflobster@example.com\n"
+"POT-Creation-Date: 2025-05-27 09:55+0000\n"
+"PO-Revision-Date: 2025-05-27 11:59+0200\n"
+"Last-Translator: StiffLobster <stifflobster@example.com>\n"
+"Language-Team: Sesotho <st@lehae.org>\n"
+"Language: st\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: api/views.py:34
+msgid "Registration failed."
+msgstr "Ngoliso e hlōleha."
+
+#: api/views.py:36
+msgid "Username may be taken."
+msgstr "Lebitso la mosebelisi le ka nkuoa."
+
+#: api/views.py:38
+msgid "Email may be taken."
+msgstr "Imeile e ka nkuoa."
+
+#: api/views.py:126
+msgid "Hello"
+msgstr "Lumela"
+
+#: api/views.py:128
+msgid "You have received a new enquiry for your property"
+msgstr "U fumane patlisiso e ncha bakeng sa setša sa hau"
+
+#: api/views.py:128
+msgid "in"
+msgstr "ho"
+
+#: api/views.py:130
+msgid "From"
+msgstr "Ho tsoa ho"
+
+#: api/views.py:131
+msgid "Message"
+msgstr "Molaetsa"
+
+#: api/views.py:133
+msgid "Please respond directly to the tenant"
+msgstr "Ka kopo araba mohiri ka kotloloho"
+
+#: api/views.py:141
+msgid "Message sent successfully."
+msgstr "Molaetsa o rometsoe ka katleho!"
+
+#: api/views.py:143
+msgid "Failed to send message."
+msgstr "Ho hlōleha ho romela molaetsa."
+
+#: api/views.py:145
+msgid "Invalid or missing property ID."
+msgstr "Property ID e haelloa."
+
+#: api/views.py:159 api/views.py:171
+msgid "Property ID required."
+msgstr "Property ID ea hlokahala."
+
+#: api/views.py:163
+msgid "Property already favorited."
+msgstr "Setša se se se ratoa."
+
+#: api/views.py:176
+msgid "Favorite not found."
+msgstr "Setša se ratoang ha se fumanehe."
