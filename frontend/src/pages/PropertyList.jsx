@@ -23,16 +23,9 @@ const PropertyList = () => {
     try {
       setLoading(true);
       setError('');
-      console.log('Fetching properties with filters:', filters);
-      const token = localStorage.getItem('access_token');
-      console.log('Access token:', token ? 'Present' : 'Missing');
-
       const response = await axiosInstance.get('/api/properties/', { params: filters });
-      console.log('API Response:', JSON.stringify(response.data, null, 2));
-
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       if (!Array.isArray(data)) {
-        console.error('Expected array, received:', data);
         setError(t('Unexpected response format from server'));
         setProperties([]);
         return;
@@ -61,15 +54,13 @@ const PropertyList = () => {
         description: item.description || 'No description available',
       }));
 
-      console.log('Mapped properties:', JSON.stringify(mappedProperties, null, 2));
       setProperties(mappedProperties);
     } catch (err) {
-      console.error('Fetch Properties Error:', err.response?.data || err.message);
       if (err.response?.status === 401) {
         setError(t('Please log in to view properties'));
         navigate('/login');
       } else {
-        setError(t('Failed to load properties: ') + (err.response?.data?.detail || err.message));
+        setError(t('Failed to load properties'));
       }
       setProperties([]);
     } finally {
@@ -78,88 +69,87 @@ const PropertyList = () => {
   };
 
   const handleFavoriteToggle = async (propertyId, isFavorited) => {
-    if (!propertyId) {
-      console.error('Property ID is undefined');
-      setError(t('Cannot toggle favorite: Invalid property'));
-      return;
-    }
-
+    if (!propertyId) return;
     try {
-      console.log(`Toggling favorite for property ${propertyId}: ${isFavorited ? 'Remove' : 'Add'}`);
       if (isFavorited) {
         await axiosInstance.delete('/api/favorites/', { data: { property: propertyId } });
       } else {
         await axiosInstance.post('/api/favorites/', { property: propertyId });
       }
-      await fetchProperties(); // Refresh properties to update is_favorited
+      await fetchProperties();
     } catch (err) {
-      console.error('Favorite Toggle Error:', err.response?.data || err.message);
       if (err.response?.status === 401) {
         setError(t('Please log in to manage favorites'));
         navigate('/login');
       } else {
-        setError(t('Failed to update favorite: ') + (err.response?.data?.detail || err.message));
+        setError(t('Failed to update favorite'));
       }
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  if (loading) return <LoadingSpinner className="min-h-screen flex items-center justify-center" />;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.8 }}
-      className="container mx-auto px-4 py-16 bg-neutral-50"
-    >
-      <h1 className="text-4xl md:text-5xl font-heading font-bold text-secondary mb-12">
-        {t('Explore Properties')}
-      </h1>
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 relative">
-        <motion.div
-          className="lg:col-span-2 bg-white rounded-2xl shadow-neumorphic p-8 sticky top-4 z-10"
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6 }}
+    <div className="min-h-screen bg-neutral-50 pt-20 md:pt-24">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8">
+        <motion.h1
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-4xl md:text-5xl font-heading font-bold text-secondary mb-10 text-center md:text-left"
         >
-          <PropertyFilter onFilter={setFilters} />
-        </motion.div>
-        <div className="lg:col-span-3 z-0">
-          {error && (
-            <motion.div
-              className="mb-8 p-4 bg-red-50 text-red-600 rounded-lg"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4 }}
-            >
-              {error}
-            </motion.div>
-          )}
-          {properties.length === 0 ? (
-            <motion.div
-              className="text-center py-16"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4 }}
-            >
-              <p className="text-neutral-600 text-lg">{t('No properties found matching your criteria')}</p>
-            </motion.div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {properties.map((property) => (
-                <PropertyCard
-                  key={property.id}
-                  property={property}
-                  onFavoriteToggle={handleFavoriteToggle}
-                />
-              ))}
+          {t('Explore Properties')}
+        </motion.h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Filter - sidebar on desktop, collapsible on mobile */}
+          <div className="lg:col-span-4 xl:col-span-3">
+            <div className="sticky top-24 z-10">
+              <PropertyFilter onFilter={setFilters} />
             </div>
-          )}
+          </div>
+
+          {/* Listings */}
+          <div className="lg:col-span-8 xl:col-span-9">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mb-8 p-6 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-center"
+              >
+                {error}
+              </motion.div>
+            )}
+
+            {properties.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-20 bg-white rounded-2xl shadow-sm"
+              >
+                <p className="text-xl text-gray-600 mb-6">{t('No properties found matching your criteria')}</p>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setFilters({})}
+                >
+                  {t('Clear Filters')}
+                </Button>
+              </motion.div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+                {properties.map((property) => (
+                  <PropertyCard
+                    key={property.id}
+                    property={property}
+                    onFavoriteToggle={handleFavoriteToggle}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

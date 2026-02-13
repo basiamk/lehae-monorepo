@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Heart, MapPin, Bed, Bath, Ruler } from 'lucide-react';
+import { Heart, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -19,61 +19,75 @@ const PropertyCard = ({ property, onFavoriteToggle }) => {
     description,
   } = property;
 
-  const handleClick = () => {
-    if (id) {
-      navigate(`/properties/${id}`);
-    }
-  };
+  const handleClick = () => id && navigate(`/properties/${id}`);
 
   const handleFavoriteClick = (e) => {
     e.stopPropagation();
-    if (id) {
-      onFavoriteToggle(id, is_favorited);
-    }
+    if (id) onFavoriteToggle(id, is_favorited);
   };
 
-  const imageUrl = images && images.length > 0 ? images[0].image_url : 'https://via.placeholder.com/400x300';
+  const imageUrl = images?.[0]?.image_url || 'https://via.placeholder.com/600x400?text=Lehae+Property';
 
   return (
     <motion.div
-      className="bg-white rounded-2xl shadow-md overflow-hidden cursor-pointer relative z-0"
-      whileHover={{ scale: 1.03 }}
+      className="group bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer"
+      whileHover={{ y: -8, scale: 1.02 }}
       transition={{ duration: 0.3 }}
       onClick={handleClick}
     >
-      <div className="relative">
+      {/* Image with overlay */}
+      <div className="relative h-64 overflow-hidden">
         <img
           src={imageUrl}
-          alt={description}
-          className="w-full h-48 object-cover"
+          alt={`${area}, ${district}`}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+        
+        {/* Favorite Button */}
         <button
           onClick={handleFavoriteClick}
-          className="absolute top-4 right-4 p-2 rounded-full bg-white bg-opacity-80 hover:bg-opacity-100 transition"
+          className="absolute top-4 right-4 p-3 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white transition-all shadow-md"
         >
           <Heart
-            className={`w-6 h-6 ${is_favorited ? 'text-red-500 fill-red-500' : 'text-gray-600'}`}
+            className={`w-6 h-6 transition-all ${
+              is_favorited ? 'fill-red-500 text-red-500' : 'text-gray-600 hover:text-red-500'
+            }`}
           />
         </button>
+
+        {/* Status Badge */}
+        <span className="absolute top-4 left-4 px-4 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-sm font-medium text-gray-800 shadow-sm">
+          {t(status)}
+        </span>
       </div>
+
+      {/* Details */}
       <div className="p-6">
-        <h3 className="text-xl font-heading font-bold text-gray-800 truncate">
+        <h3 className="text-2xl font-heading font-bold text-secondary mb-2 truncate">
           {area}, {district}
         </h3>
-        <p className="text-gray-600 mt-1 truncate">{description}</p>
-        <p className="text-primary font-bold mt-2">
-          {t('M')} {rental_amount.toLocaleString()} / {t('month')}
-        </p>
-        <div className="flex items-center gap-4 mt-4 text-gray-600">
-          <div className="flex items-center gap-1">
-            <MapPin className="w-4 h-4" />
-            <span className="text-sm">{district}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-sm capitalize">{status}</span>
+
+        <p className="text-gray-600 mb-4 line-clamp-2">{description || t('Modern rental in prime location')}</p>
+
+        <div className="flex items-center justify-between">
+          <p className="text-3xl font-bold text-primary">
+            M {rental_amount.toLocaleString()}
+            <span className="text-lg font-normal text-gray-600"> / {t('month')}</span>
+          </p>
+
+          <div className="flex items-center space-x-2 text-gray-600">
+            <MapPin className="w-5 h-5" />
+            <span className="text-sm font-medium">{district}</span>
           </div>
         </div>
-        <p className="text-sm text-gray-500 mt-2">{t('Landlord')}: {landlord_username}</p>
+
+        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
+          <span>{t('Landlord')}: {landlord_username || 'Private'}</span>
+          {property.is_approved && (
+            <span className="text-green-600 font-medium">✓ {t('Verified')}</span>
+          )}
+        </div>
       </div>
     </motion.div>
   );

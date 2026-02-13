@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axiosInstance from '../utils/axios.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
+import Button from '../components/common/Button.jsx';
+import { Heart, Share2, MapPin, Home, DollarSign, ShieldCheck } from 'lucide-react';
 
 const PropertyDetail = () => {
   const { t } = useTranslation();
@@ -11,17 +13,16 @@ const PropertyDetail = () => {
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentImage, setCurrentImage] = useState(0);
 
   useEffect(() => {
     const fetchProperty = async () => {
       try {
         setLoading(true);
         const response = await axiosInstance.get(`/api/properties/${id}/`);
-        console.log('Property Detail Response:', response.data);
         setProperty(response.data);
         setError('');
       } catch (err) {
-        console.error('Fetch Property Error:', err.response?.data || err);
         setError(t('Failed to load property details'));
       } finally {
         setLoading(false);
@@ -30,113 +31,168 @@ const PropertyDetail = () => {
     fetchProperty();
   }, [id, t]);
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  if (loading) return <LoadingSpinner size="lg" className="min-h-screen flex items-center justify-center" />;
 
-  if (error) {
+  if (error || !property) {
     return (
-      <div className="container mx-auto px-4 py-16">
-        <p className="text-accent text-lg">{error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="text-center p-8 bg-white rounded-2xl shadow-xl max-w-lg mx-4">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">{error || t('Property not found')}</h2>
+          <Link to="/properties">
+            <Button variant="primary" size="lg">{t('Browse Properties')}</Button>
+          </Link>
+        </div>
       </div>
     );
   }
 
-  if (!property) {
-    return (
-      <div className="container mx-auto px-4 py-16">
-        <p className="text-neutral-600 text-lg">{t('Property not found')}</p>
-      </div>
-    );
-  }
+  const images = property.images?.length > 0 ? property.images : [{ image_url: property.image_url }];
+  const mainImage = images[currentImage]?.image_url;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.8 }}
-      className="container mx-auto px-4 py-16 bg-neutral-50"
+      transition={{ duration: 0.6 }}
+      className="min-h-screen bg-neutral-50 pb-20"
     >
-      <div className="relative">
-        {property.images?.length > 0 ? (
-          <motion.div
-            className="relative h-[60vh] rounded-2xl overflow-hidden"
+      {/* Image Gallery */}
+      <section className="relative">
+        <div className="h-[70vh] md:h-[85vh] bg-black relative overflow-hidden">
+          <motion.img
+            key={currentImage}
+            src={mainImage}
+            alt={`${property.area} - ${property.district}`}
+            className="w-full h-full object-cover"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.6 }}
-          >
-            <img
-              src={property.images[0].image_url}
-              alt={property.area}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-secondary/50 to-transparent"></div>
-          </motion.div>
-        ) : property.image_url ? (
-          <motion.div
-            className="relative h-[60vh] rounded-2xl overflow-hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6 }}
-          >
-            <img
-              src={property.image_url}
-              alt={property.area}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-secondary/50 to-transparent"></div>
-          </motion.div>
-        ) : (
-          <div className="h-[60vh] bg-neutral-100 rounded-2xl flex items-center justify-center">
-            <span className="text-neutral-600 text-lg">{t('No Image')}</span>
+            transition={{ duration: 0.5 }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+
+          {/* Image Counter */}
+          {images.length > 1 && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-full text-sm backdrop-blur-sm">
+              {currentImage + 1} / {images.length}
+            </div>
+          )}
+        </div>
+
+        {/* Thumbnails */}
+        {images.length > 1 && (
+          <div className="absolute -bottom-16 left-0 right-0 z-10">
+            <div className="container mx-auto px-4">
+              <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+                {images.map((img, idx) => (
+                  <button
+                    key={img.id || idx}
+                    onClick={() => setCurrentImage(idx)}
+                    className={`flex-none snap-center w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden border-4 transition-all ${
+                      currentImage === idx ? 'border-primary scale-105' : 'border-white/50'
+                    }`}
+                  >
+                    <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
-        <motion.div
-          className="bg-white rounded-2xl shadow-neumorphic p-8 max-w-2xl mx-auto -mt-24 relative z-10"
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-secondary mb-4 flex items-center">
-            {property.area}
-            {property.is_approved && (
-              <span className="ml-3 bg-primary text-white text-sm font-semibold px-3 py-1 rounded-full">
-                {t('Verified')}
-              </span>
-            )}
-          </h1>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <p className="text-neutral-600 mb-3">{t('District')}: <span className="font-medium text-secondary">{property.district}</span></p>
-              <p className="text-neutral-600 mb-3">{t('Landlord')}: <span className="font-medium text-secondary">{property.landlord_username || 'Unknown'}</span></p>
-              <p className="text-neutral-600 mb-3">{t('Rental Amount')}: <span className="font-medium text-primary">{property.rental_amount} LSL</span></p>
+      </section>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-24 md:pt-32">
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 -mt-20 relative z-10"
+          >
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-10">
+              <div>
+                <h1 className="text-4xl md:text-5xl font-heading font-extrabold text-secondary mb-3">
+                  {property.area}, {property.district}
+                </h1>
+                <p className="text-xl text-gray-600 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-primary" />
+                  {property.district}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <p className="text-4xl md:text-5xl font-bold text-primary">
+                  M {property.rental_amount.toLocaleString()}
+                  <span className="text-xl md:text-2xl font-normal text-gray-600"> / {t('month')}</span>
+                </p>
+                <div className="flex gap-3">
+                  <button className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+                    <Heart className="w-6 h-6 text-gray-600 hover:text-red-500" />
+                  </button>
+                  <button className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+                    <Share2 className="w-6 h-6 text-gray-600" />
+                  </button>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-neutral-600 mb-3">{t('Deposit')}: <span className="font-medium text-secondary">{property.deposit ? `${property.deposit} LSL` : 'Not specified'}</span></p>
-              <p className="text-neutral-600 mb-3">{t('Viewing Fee')}: <span className="font-medium text-secondary">{property.viewing_fee ? `${property.viewing_fee} LSL` : 'Free'}</span></p>
-              <p className="text-neutral-600 mb-3">{t('Status')}: <span className="font-medium text-secondary">{t(property.status)}</span></p>
+
+            {/* Key Features */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+              <div className="bg-neutral-50 p-6 rounded-2xl text-center">
+                <DollarSign className="w-10 h-10 mx-auto mb-3 text-primary" />
+                <p className="text-sm text-gray-600">{t('Rental')}</p>
+                <p className="text-xl font-bold text-secondary">M {property.rental_amount.toLocaleString()}</p>
+              </div>
+              <div className="bg-neutral-50 p-6 rounded-2xl text-center">
+                <Home className="w-10 h-10 mx-auto mb-3 text-primary" />
+                <p className="text-sm text-gray-600">{t('Status')}</p>
+                <p className="text-xl font-bold text-secondary capitalize">{t(property.status)}</p>
+              </div>
+              <div className="bg-neutral-50 p-6 rounded-2xl text-center">
+                {property.is_approved && (
+                  <>
+                    <ShieldCheck className="w-10 h-10 mx-auto mb-3 text-green-500" />
+                    <p className="text-sm text-gray-600">{t('Verified')}</p>
+                    <p className="text-xl font-bold text-green-600">{t('Yes')}</p>
+                  </>
+                )}
+              </div>
+              <div className="bg-neutral-50 p-6 rounded-2xl text-center">
+                <p className="text-sm text-gray-600">{t('Landlord')}</p>
+                <p className="text-xl font-bold text-secondary">{property.landlord_username || 'Private'}</p>
+              </div>
             </div>
-          </div>
-          <p className="text-neutral-600">{t('Description')}: <span className="font-medium text-secondary">{property.description || 'No description available'}</span></p>
-        </motion.div>
+
+            {/* Description */}
+            <div className="mb-12">
+              <h2 className="text-2xl md:text-3xl font-heading font-bold text-secondary mb-6">
+                {t('About this property')}
+              </h2>
+              <p className="text-lg text-gray-700 leading-relaxed whitespace-pre-line">
+                {property.description || t('A beautiful property in a prime location, perfect for comfortable living. Contact the landlord for more details.')}
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                variant="primary"
+                size="lg"
+                className="py-6 px-12 text-xl bg-primary hover:bg-primary-dark"
+              >
+                {t('Contact Landlord')}
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="py-6 px-12 text-xl border-2 border-gray-300 hover:bg-gray-50"
+              >
+                {t('Add to Favorites')}
+              </Button>
+            </div>
+          </motion.div>
+        </div>
       </div>
-      {property.images?.length > 1 && (
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
-        >
-          {property.images.slice(1).map((img) => (
-            <img
-              key={img.id}
-              src={img.image_url}
-              alt={property.area}
-              className="w-full h-64 object-cover rounded-2xl shadow-neumorphic"
-            />
-          ))}
-        </motion.div>
-      )}
     </motion.div>
   );
 };

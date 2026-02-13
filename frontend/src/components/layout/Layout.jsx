@@ -6,45 +6,44 @@ import Footer from './Footer';
 const pageVariants = {
   initial: {
     opacity: 0,
-    y: 20
+    y: 20,
   },
   animate: {
     opacity: 1,
-    y: 0
+    y: 0,
+    transition: { duration: 0.6, ease: 'easeOut' },
   },
   exit: {
     opacity: 0,
-    y: -20
-  }
-};
-
-const pageTransition = {
-  type: 'tween',
-  ease: 'anticipate',
-  duration: 0.5
+    y: -10,
+    transition: { duration: 0.4, ease: 'easeIn' },
+  },
 };
 
 const Layout = ({ children }) => {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-neutral-50 to-white">
+      {/* Navbar is fixed in its own component */}
       <Navbar />
-      <main className="flex-grow container mx-auto px-4 py-8">
+
+      {/* Main content with better padding */}
+      <main className="flex-grow pt-20 md:pt-24 pb-12">
         <AnimatePresence mode="wait">
           <motion.div
             key={window.location.pathname}
+            variants={pageVariants}
             initial="initial"
             animate="animate"
             exit="exit"
-            variants={pageVariants}
-            transition={pageTransition}
           >
             {children}
           </motion.div>
         </AnimatePresence>
       </main>
+
       <Footer />
     </div>
   );
 };
 
-export default Layout; 
+export default Layout;
