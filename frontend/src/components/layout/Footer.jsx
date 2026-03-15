@@ -1,81 +1,104 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Twitter, Facebook, Instagram, Mail, Phone } from 'lucide-react';
+import { Twitter, Facebook, Instagram, Mail, Phone, MapPin } from 'lucide-react';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-secondary text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
-          {/* Brand & Description */}
-          <div className="space-y-6">
-            <Link to="/" className="flex items-center space-x-3">
-              <img src="/logo-white.png" alt="Lehae" className="h-10 w-auto" /> {/* Use white logo variant if you have one */}
-              <span className="text-2xl font-heading font-bold">Lehae</span>
+    <footer style={{ fontFamily: "'DM Sans', sans-serif", background: '#1c1a17', color: '#fff' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500&display=swap');
+        .footer-link {
+          color: #9c9080; text-decoration: none; font-size: 14px;
+          transition: color 0.18s; display: inline-block;
+        }
+        .footer-link:hover { color: #d4a96a; }
+        .footer-social {
+          width: 38px; height: 38px; border-radius: 10px;
+          border: 1px solid rgba(255,255,255,0.1);
+          display: flex; align-items: center; justify-content: center;
+          color: #9c9080; text-decoration: none;
+          transition: all 0.18s;
+        }
+        .footer-social:hover { border-color: #d4a96a; color: #d4a96a; background: rgba(212,169,106,0.08); }
+        .footer-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 40px 0 28px; }
+        .footer-col-title {
+          font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+          text-transform: uppercase; color: #5a5248; margin-bottom: 20px;
+        }
+      `}</style>
+
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '64px 24px 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 48 }}>
+
+          {/* Brand */}
+          <div style={{ gridColumn: 'span 1' }}>
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 20 }}>
+              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: '#fff' }}>Lehae</span>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d4a96a', flexShrink: 0 }} />
             </Link>
-            <p className="text-gray-300 text-sm leading-relaxed">
-              Your trusted platform for finding and renting premium properties across Lesotho. Verified listings, direct landlord connections, and secure experience.
+            <p style={{ fontSize: 13.5, lineHeight: 1.7, color: '#7a7060', maxWidth: 220 }}>
+              Your trusted platform for finding and renting premium properties across Lesotho.
             </p>
+            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="footer-social">
+                <Twitter size={15} />
+              </a>
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="footer-social">
+                <Facebook size={15} />
+              </a>
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="footer-social">
+                <Instagram size={15} />
+              </a>
+            </div>
           </div>
 
           {/* Navigation */}
           <div>
-            <h3 className="text-lg font-semibold mb-6">Navigation</h3>
-            <ul className="space-y-4 text-gray-300">
-              <li><Link to="/properties" className="hover:text-accent transition-colors">Properties</Link></li>
-              <li><Link to="/about" className="hover:text-accent transition-colors">About Us</Link></li>
-              <li><Link to="/how-it-works" className="hover:text-accent transition-colors">How It Works</Link></li>
-              <li><Link to="/contact" className="hover:text-accent transition-colors">Contact</Link></li>
-            </ul>
+            <p className="footer-col-title">Explore</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Link to="/properties" className="footer-link">Properties</Link>
+              <Link to="/about" className="footer-link">About Us</Link>
+              <Link to="/how-it-works" className="footer-link">How It Works</Link>
+              <Link to="/contact" className="footer-link">Contact</Link>
+            </div>
           </div>
 
           {/* Legal */}
           <div>
-            <h3 className="text-lg font-semibold mb-6">Legal</h3>
-            <ul className="space-y-4 text-gray-300">
-              <li><Link to="/privacy" className="hover:text-accent transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-accent transition-colors">Terms of Service</Link></li>
-              <li><Link to="/cookie-policy" className="hover:text-accent transition-colors">Cookie Policy</Link></li>
-            </ul>
+            <p className="footer-col-title">Legal</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Link to="/privacy" className="footer-link">Privacy Policy</Link>
+              <Link to="/terms" className="footer-link">Terms of Service</Link>
+              <Link to="/cookie-policy" className="footer-link">Cookie Policy</Link>
+            </div>
           </div>
 
-          {/* Contact & Social */}
+          {/* Contact */}
           <div>
-            <h3 className="text-lg font-semibold mb-6">Get in Touch</h3>
-            <div className="space-y-4 text-gray-300">
-              <div className="flex items-center space-x-3">
-                <Mail className="w-5 h-5" />
-                <a href="mailto:info@lehae.com" className="hover:text-accent transition-colors">info@lehae.com</a>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Phone className="w-5 h-5" />
-                <a href="tel:+266694349760" className="hover:text-accent transition-colors">+266 69 434 9760</a>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <h4 className="text-sm font-medium mb-4">Follow Us</h4>
-              <div className="flex space-x-6">
-                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">
-                  <Twitter className="w-6 h-6" />
-                </a>
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">
-                  <Facebook className="w-6 h-6" />
-                </a>
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">
-                  <Instagram className="w-6 h-6" />
-                </a>
-              </div>
+            <p className="footer-col-title">Get in Touch</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <a href="mailto:trusthutsolutions@gmail.com" className="footer-link" style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <Mail size={14} style={{ color: '#d4a96a', flexShrink: 0 }} />
+                trusthutsolutions@gmail.com
+              </a>
+              <a href="tel:+26663091719" className="footer-link" style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <Phone size={14} style={{ color: '#d4a96a', flexShrink: 0 }} />
+                +266 6309 1719
+              </a>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, color: '#7a7060' }}>
+                <MapPin size={14} style={{ color: '#d4a96a', flexShrink: 0 }} />
+                Maseru, Lesotho
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-16 pt-8 border-t border-gray-700 text-center text-sm text-gray-400">
-          <p>© {currentYear} Lehae. All rights reserved.</p>
-          <p className="mt-2">Made with ❤️ in Maseru, Lesotho</p>
+        <div className="footer-divider" />
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32, gap: 12 }}>
+          <p style={{ fontSize: 13, color: '#5a5248' }}>© {currentYear} Lehae. All rights reserved.</p>
+          <p style={{ fontSize: 13, color: '#5a5248' }}>Made with ♥ in Maseru, Lesotho</p>
         </div>
       </div>
     </footer>

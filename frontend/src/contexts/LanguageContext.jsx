@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getLanguage, setLanguage, t, getAvailableLanguages, getCurrentLanguage } from '../lib/language';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import i18n from '../i18n';
 
 const LanguageContext = createContext();
 
@@ -12,45 +12,49 @@ export const useLanguage = () => {
 };
 
 export const LanguageProvider = ({ children }) => {
-  // Initialize with a default language if getCurrentLanguage returns undefined
   const [currentLanguage, setCurrentLanguage] = useState(() => {
-    const lang = getCurrentLanguage();
-    return lang || { code: 'en', name: 'English', flag: '🇬🇧' };
+    const lng = i18n.language || 'en';
+    return {
+      code: lng,
+      name: lng === 'st' ? 'Sesotho' : 'English',
+      flag: lng === 'st' ? '🇱🇸' : '🇬🇧'
+    };
   });
-  const [availableLanguages] = useState(getAvailableLanguages());
+
+  const availableLanguages = [
+    { code: 'en', name: 'English', flag: '🇬🇧' },
+    { code: 'st', name: 'Sesotho', flag: '🇱🇸' }
+  ];
+
+  const changeLanguage = (lng) => {
+    i18n.changeLanguage(lng);
+    setCurrentLanguage({
+      code: lng,
+      name: lng === 'st' ? 'Sesotho' : 'English',
+      flag: lng === 'st' ? '🇱🇸' : '🇬🇧'
+    });
+  };
 
   useEffect(() => {
-    const savedLanguage = getLanguage();
-    if (savedLanguage !== currentLanguage.code) {
-      const newLang = getCurrentLanguage();
-      if (newLang) {
-        setCurrentLanguage(newLang);
-      }
-    }
+    const handleLanguageChange = (lng) => {
+      setCurrentLanguage({
+        code: lng,
+        name: lng === 'st' ? 'Sesotho' : 'English',
+        flag: lng === 'st' ? '🇱🇸' : '🇬🇧'
+      });
+    };
+
+    i18n.on('languageChanged', handleLanguageChange);
+    return () => {
+      i18n.off('languageChanged', handleLanguageChange);
+    };
   }, []);
-
-  const changeLanguage = (langCode) => {
-    setLanguage(langCode);
-    const newLang = getCurrentLanguage();
-    if (newLang) {
-      setCurrentLanguage(newLang);
-    }
-  };
-
-  const translate = (key) => {
-    try {
-      return t(key);
-    } catch (error) {
-      console.error(`Translation error for key: ${key}`, error);
-      return key;
-    }
-  };
 
   const value = {
     currentLanguage,
     availableLanguages,
     changeLanguage,
-    t: translate
+    t: i18n.t.bind(i18n)
   };
 
   return (

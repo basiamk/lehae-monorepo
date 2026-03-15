@@ -1,12 +1,18 @@
+// src/utils/axios.js
 import axios from 'axios';
 
+const isDevelopment = import.meta.env.DEV; // Vite's built-in way to detect dev mode
+
 const axiosInstance = axios.create({
-  baseURL: 'https://lehae-backend.onrender.com', // Your Render URL
+  baseURL: isDevelopment 
+    ? 'http://localhost:8000'               // ← Your local Django backend
+    : 'https://lehae-backend.onrender.com', // ← Production Render URL
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
+// Request interceptor (add token)
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -24,6 +30,7 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+// Response interceptor (refresh token + error handling)
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -39,9 +46,10 @@ axiosInstance.interceptors.response.use(
           return Promise.reject(error);
         }
         console.log('Attempting token refresh');
-        const response = await axios.post('https://lehae-backend.onrender.com/api/token/refresh/', {
-          refresh: refreshToken,
-        });
+        const response = await axios.post(
+          `${axiosInstance.defaults.baseURL}/api/token/refresh/`, 
+          { refresh: refreshToken }
+        );
         const { access } = response.data;
         localStorage.setItem('access_token', access);
         console.log('Token refreshed successfully, new access token:', access);

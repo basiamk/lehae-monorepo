@@ -1,46 +1,21 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 
-const pageVariants = {
-  initial: {
-    opacity: 0,
-    y: 20,
-  },
-  animate: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: 'easeOut' },
-  },
-  exit: {
-    opacity: 0,
-    y: -10,
-    transition: { duration: 0.4, ease: 'easeIn' },
-  },
-};
+// No AnimatePresence, no exit animations.
+// Exit animations with mode="wait" unmount the old page before mounting
+// the new one — this causes useEffect fetches to fire on unmounting
+// components, cancels in-flight API calls, and leaves blank pages.
+// Each page handles its own fade-in independently.
 
 const Layout = ({ children }) => {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-neutral-50 to-white">
-      {/* Navbar is fixed in its own component */}
+    <div className="min-h-screen flex flex-col bg-neutral-50">
       <Navbar />
-
-      {/* Main content with better padding */}
-      <main className="flex-grow pt-20 md:pt-24 pb-12">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={window.location.pathname}
-            variants={pageVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
+      <main className="flex-grow pt-[68px]">
+        {children}
       </main>
-
       <Footer />
     </div>
   );

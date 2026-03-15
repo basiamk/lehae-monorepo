@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 import { LanguageProvider } from './contexts/LanguageContext.jsx';
+import { UnreadProvider } from './contexts/UnreadContext.jsx';  // ← NEW
 import './index.css';
 import './i18n';
 
@@ -20,7 +21,9 @@ root.render(
     <BrowserRouter>
       <AuthProvider>
         <LanguageProvider>
-          <App />
+          <UnreadProvider>  {/* ← NEW: wrap here */}
+            <App />
+          </UnreadProvider>
         </LanguageProvider>
       </AuthProvider>
     </BrowserRouter>

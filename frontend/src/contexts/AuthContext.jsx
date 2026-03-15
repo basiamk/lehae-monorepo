@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
       console.log('Login Response:', response.data);
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
-      // Fetch user profile to get full user data
+      // Fetch user profile
       const profileResponse = await axiosInstance.get('/api/profile/');
       const userData = profileResponse.data || { username: usernameOrEmail, is_landlord: false };
       setUser(userData);

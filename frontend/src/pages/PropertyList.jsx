@@ -1,150 +1,131 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axiosInstance from '../utils/axios.js';
 import PropertyFilter from '../components/property/PropertyFilter.jsx';
 import PropertyCard from '../components/property/PropertyCard.jsx';
-import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
+import SkeletonGrid from '../components/common/SkeletonCard.jsx';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import { SlidersHorizontal, ArrowRight } from 'lucide-react';
 
 const PropertyList = () => {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
+  const { t }      = useLanguage();
+  const { user }   = useAuth();
+  const navigate   = useNavigate();
+  const location   = useLocation();
   const [properties, setProperties] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [filters, setFilters] = useState({});
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState('');
+  const [filters, setFilters]       = useState({});
 
   useEffect(() => {
-    fetchProperties();
-  }, [filters]);
+    const params = new URLSearchParams(location.search);
+    setFilters({
+      area:     params.get('area')     || '',
+      district: params.get('district') || '',
+      status:   params.get('status')   || 'all',
+      minPrice: params.get('minPrice') || '',
+      maxPrice: params.get('maxPrice') || '',
+    });
+  }, [location.search]);
+
+  useEffect(() => { fetchProperties(); }, [filters, user]);
 
   const fetchProperties = async () => {
     try {
-      setLoading(true);
-      setError('');
-      const response = await axiosInstance.get('/api/properties/', { params: filters });
+      setLoading(true); setError('');
+      const params = { ...filters };
+      // Tenants only see approved listings.
+      // Landlords see all (so they can preview their own pending listings).
+      // Admins see all.
+      if (!user?.is_staff && !user?.is_landlord) {
+        params.is_approved = 'true';
+      }
+      const response = await axiosInstance.get('/api/properties/', { params });
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
-      if (!Array.isArray(data)) {
-        setError(t('Unexpected response format from server'));
-        setProperties([]);
-        return;
-      }
-
-      const mappedProperties = data.map(item => ({
-        id: item.id || null,
-        area: item.area || 'Unknown',
-        district: item.district || 'Unknown',
-        rental_amount: item.rental_amount || 0,
-        is_approved: item.is_approved || false,
-        is_favorited: item.is_favorited || false,
-        images: Array.isArray(item.images) && item.images.length > 0 
-          ? item.images.map(img => ({
-              id: img.id,
-              image_url: img.image_url || `${axiosInstance.defaults.baseURL}/media/${img.image?.name?.split('/').pop() || 'default.jpg'}`,
-              uploaded_at: img.uploaded_at,
-            }))
-          : item.image_url
-            ? [{ image_url: item.image_url || `${axiosInstance.defaults.baseURL}/media/${item.image?.name?.split('/').pop() || 'default.jpg'}` }]
-            : [{ image_url: `${axiosInstance.defaults.baseURL}/media/default.jpg` }],
-        landlord_username: item.landlord_username || 'Unknown',
-        deposit: item.deposit != null ? item.deposit : null,
-        viewing_fee: item.viewing_fee != null ? item.viewing_fee : null,
-        status: item.status || 'unknown',
-        description: item.description || 'No description available',
-      }));
-
-      setProperties(mappedProperties);
-    } catch (err) {
-      if (err.response?.status === 401) {
-        setError(t('Please log in to view properties'));
-        navigate('/login');
-      } else {
-        setError(t('Failed to load properties'));
-      }
+      setProperties(data);
+    } catch {
+      setError(t('failed_to_load_properties'));
       setProperties([]);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleFavoriteToggle = async (propertyId, isFavorited) => {
-    if (!propertyId) return;
     try {
-      if (isFavorited) {
-        await axiosInstance.delete('/api/favorites/', { data: { property: propertyId } });
-      } else {
-        await axiosInstance.post('/api/favorites/', { property: propertyId });
-      }
-      await fetchProperties();
-    } catch (err) {
-      if (err.response?.status === 401) {
-        setError(t('Please log in to manage favorites'));
-        navigate('/login');
-      } else {
-        setError(t('Failed to update favorite'));
-      }
-    }
+      if (isFavorited) await axiosInstance.delete('/api/favorites/', { data: { property: propertyId } });
+      else             await axiosInstance.post('/api/favorites/', { property: propertyId });
+      fetchProperties();
+    } catch { setError(t('failed_to_update_favorite')); }
   };
 
-  if (loading) return <LoadingSpinner className="min-h-screen flex items-center justify-center" />;
+  const handleFilter = (newFilters) => {
+    setFilters(newFilters);
+    navigate(`/properties?${new URLSearchParams(newFilters).toString()}`);
+  };
 
   return (
-    <div className="min-h-screen bg-neutral-50 pt-20 md:pt-24">
-      <div className="container mx-auto px-4 md:px-6 lg:px-8">
-        <motion.h1
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-4xl md:text-5xl font-heading font-bold text-secondary mb-10 text-center md:text-left"
-        >
-          {t('Explore Properties')}
-        </motion.h1>
+    <div className="min-h-screen bg-neutral-50">
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500&display=swap');`}</style>
 
+      <div style={{ background:'#1c1a17', paddingTop:48, paddingBottom:48 }}>
+        <div className="max-w-7xl mx-auto px-6">
+          <p style={{fontSize:11,fontWeight:600,letterSpacing:'0.1em',textTransform:'uppercase',color:'#d4a96a',marginBottom:8}}>
+            All listings
+          </p>
+          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:'clamp(1.8rem,4vw,2.8rem)',fontWeight:700,color:'#fff'}}>
+            {t('explore_properties')}
+          </h1>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Filter - sidebar on desktop, collapsible on mobile */}
+
           <div className="lg:col-span-4 xl:col-span-3">
-            <div className="sticky top-24 z-10">
-              <PropertyFilter onFilter={setFilters} />
+            <div className="sticky top-20">
+              <PropertyFilter onFilter={handleFilter} initialFilters={filters} />
             </div>
           </div>
 
-          {/* Listings */}
           <div className="lg:col-span-8 xl:col-span-9">
             {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mb-8 p-6 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-center"
-              >
+              <div className="mb-6 p-4 rounded-xl text-sm" style={{background:'#fef2f2',border:'1px solid #fecaca',color:'#dc2626'}}>
                 {error}
-              </motion.div>
+              </div>
             )}
 
-            {properties.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-20 bg-white rounded-2xl shadow-sm"
-              >
-                <p className="text-xl text-gray-600 mb-6">{t('No properties found matching your criteria')}</p>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => setFilters({})}
-                >
-                  {t('Clear Filters')}
-                </Button>
+            {loading ? (
+              <SkeletonGrid count={6} />
+            ) : properties.length === 0 ? (
+              <motion.div initial={{opacity:0}} animate={{opacity:1}}
+                className="flex flex-col items-center justify-center py-24 text-center bg-white rounded-2xl border border-neutral-200">
+                <div style={{width:56,height:56,borderRadius:16,background:'#faf7f3',border:'1px solid #ede8e0',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>
+                  <SlidersHorizontal size={22} style={{color:'#c4bdb4'}} />
+                </div>
+                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:'#1c1a17',marginBottom:6}}>
+                  No properties found
+                </h3>
+                <p style={{fontSize:13,color:'#9c9080',marginBottom:20}}>{t('no_properties_found')}</p>
+                <button onClick={() => { setFilters({}); navigate('/properties'); }}
+                  style={{display:'flex',alignItems:'center',gap:6,padding:'10px 20px',borderRadius:10,background:'#1c1a17',color:'#fff',border:'none',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:"'DM Sans',sans-serif"}}>
+                  {t('clear_filters_and_try_again')} <ArrowRight size={13}/>
+                </button>
               </motion.div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
-                {properties.map((property) => (
-                  <PropertyCard
-                    key={property.id}
-                    property={property}
-                    onFavoriteToggle={handleFavoriteToggle}
-                  />
-                ))}
-              </div>
+              <>
+                <p style={{fontSize:13,color:'#9c9080',marginBottom:16}}>
+                  {properties.length} {properties.length === 1 ? 'property' : 'properties'} found
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {properties.map((property, i) => (
+                    <motion.div key={property.id}
+                      initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}}>
+                      <PropertyCard property={property} onFavoriteToggle={handleFavoriteToggle} />
+                    </motion.div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
