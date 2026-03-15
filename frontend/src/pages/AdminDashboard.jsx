@@ -24,9 +24,9 @@ const Badge = ({ count, color = '#f59e0b' }) => count > 0 ? (
 ) : null;
 
 const AdminDashboard = () => {
-  const { user }   = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate   = useNavigate();
-  const isAdmin    = user?.is_staff || user?.username === 'admin';
+  const isAdmin    = user?.is_staff === true;
 
   const [tab, setTab]                       = useState('properties');
   const [users, setUsers]                   = useState([]);
@@ -36,15 +36,20 @@ const AdminDashboard = () => {
   const [supportThreads, setSupportThreads] = useState([]);
   const [contactInbox, setContactInbox]     = useState([]);
   const [activeThread, setActiveThread]     = useState(null);
-  const [selectedUser, setSelectedUser]     = useState(null); // full profile panel
+  const [selectedUser, setSelectedUser]     = useState(null);
   const [threadMessages, setThreadMessages] = useState([]);
   const [supportReply, setSupportReply]     = useState('');
   const [sendingReply, setSendingReply]     = useState(false);
   const [error, setError]                   = useState('');
   const [success, setSuccess]               = useState('');
+  const [dataLoaded, setDataLoaded]         = useState(false);
 
   useEffect(() => {
+    // Wait for auth to finish loading before checking isAdmin
+    if (authLoading) return;
     if (!isAdmin) return;
+    if (dataLoaded) return; // don't refetch if already loaded
+
     const fetchData = async () => {
       try {
         const [ud, pd, rd] = await Promise.all([
@@ -58,14 +63,15 @@ const AdminDashboard = () => {
         try { const vr = await axiosInstance.get('/api/verification/admin/');   setVerifications(vr.data || []); } catch {}
         try { const sr = await axiosInstance.get('/api/support/');              setSupportThreads(Array.isArray(sr.data) ? sr.data : []); } catch {}
         try { const ci = await axiosInstance.get('/api/contact-inbox/');        setContactInbox(Array.isArray(ci.data) ? ci.data : []); } catch {}
+        setDataLoaded(true);
       } catch (err) {
         setError('Failed to load dashboard data: ' + err.message);
       }
     };
     fetchData();
-  }, [user]);
+  }, [user, authLoading, isAdmin]);
 
-  const notify  = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
+  const notify = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
 
   const handleApproveProperty = async (id) => {
     try {
@@ -128,6 +134,13 @@ const AdminDashboard = () => {
     finally { setSendingReply(false); }
   };
 
+  // Show loading spinner while auth is resolving
+  if (authLoading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <p style={{ color:'#9c9080', fontFamily:"'DM Sans',sans-serif" }}>Loading…</p>
+    </div>
+  );
+
   if (!isAdmin) return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div style={{ textAlign:'center' }}>
@@ -138,7 +151,6 @@ const AdminDashboard = () => {
     </div>
   );
 
-  // Derived counts
   const pendingProperties    = properties.filter(p => !p.is_approved);
   const pendingVerifications = verifications.filter(v => v.status === 'pending');
   const unreadSupport        = supportThreads.reduce((s, t) => s + (t.unread_count || 0), 0);
@@ -155,7 +167,6 @@ const AdminDashboard = () => {
         .ad-badge { padding:3px 10px; border-radius:100px; font-size:11px; font-weight:500; }
       `}</style>
 
-      {/* Header */}
       <div style={{ background:'#1c1a17', paddingTop:48, paddingBottom:48 }}>
         <div className="max-w-6xl mx-auto px-6">
           <p style={{ fontSize:11,fontWeight:600,letterSpacing:'0.1em',textTransform:'uppercase',color:'#d4a96a',marginBottom:8 }}>Admin</p>
@@ -165,11 +176,9 @@ const AdminDashboard = () => {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
 
-        {/* Alerts */}
         {success && <div style={{ marginBottom:14,padding:'12px 16px',borderRadius:11,background:'#f0fdf4',border:'1px solid #86efac',color:'#16a34a',fontSize:13,fontFamily:"'DM Sans',sans-serif",display:'flex',alignItems:'center',gap:7 }}><Check size={14}/>{success}</div>}
         {error   && <div style={{ marginBottom:14,padding:'12px 16px',borderRadius:11,background:'#fef2f2',border:'1px solid #fecaca',color:'#dc2626',fontSize:13,fontFamily:"'DM Sans',sans-serif",display:'flex',alignItems:'center',gap:7 }}><AlertCircle size={14}/>{error}<button onClick={()=>setError('')} style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'#dc2626'}}><X size={13}/></button></div>}
 
-        {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
             { icon:Home,        label:'Total Properties',  value:properties.length,           color:'#d4a96a' },
@@ -190,7 +199,6 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        {/* Tabs */}
         <div style={{ display:'flex',flexWrap:'wrap',gap:4,background:'#faf7f3',borderRadius:12,padding:4,marginBottom:20,width:'fit-content',border:'1px solid #ede8e0' }}>
           <TabBtn active={tab==='properties'}    onClick={()=>setTab('properties')}>Properties <Badge count={pendingProperties.length}/></TabBtn>
           <TabBtn active={tab==='users'}         onClick={()=>setTab('users')}>Users</TabBtn>
@@ -202,7 +210,6 @@ const AdminDashboard = () => {
 
         <div style={{ background:'#fff',border:'1px solid #ede8e0',borderRadius:20,padding:28 }}>
 
-          {/* ── Properties ── */}
           {tab === 'properties' && (
             <>
               <p style={{ fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:'#1c1a17',marginBottom:12 }}>All Properties</p>
@@ -231,7 +238,6 @@ const AdminDashboard = () => {
             </>
           )}
 
-          {/* ── Users ── */}
           {tab === 'users' && (
             <>
               <p style={{ fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:'#1c1a17',marginBottom:20 }}>All Users</p>
@@ -264,7 +270,6 @@ const AdminDashboard = () => {
             </>
           )}
 
-          {/* ── Verifications ── */}
           {tab === 'verifications' && (
             <>
               <p style={{ fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:'#1c1a17',marginBottom:12 }}>Landlord Identity Verifications</p>
@@ -300,7 +305,6 @@ const AdminDashboard = () => {
             </>
           )}
 
-          {/* ── Reports ── */}
           {tab === 'reports' && (
             <>
               <p style={{ fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:'#1c1a17',marginBottom:20 }}>Platform Overview</p>
@@ -332,13 +336,10 @@ const AdminDashboard = () => {
             </>
           )}
 
-          {/* ── Support messages ── */}
           {tab === 'support' && (
             <>
               <p style={{ fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:'#1c1a17',marginBottom:20 }}>Landlord Support Messages</p>
               <div style={{ display:'grid', gridTemplateColumns: activeThread ? '260px 1fr' : '1fr', gap:16, minHeight:320 }}>
-
-                {/* Thread list */}
                 <div style={{ borderRight: activeThread ? '1px solid #f3ede6' : 'none', paddingRight: activeThread ? 16 : 0 }}>
                   {supportThreads.length === 0 ? (
                     <p style={{ fontSize:13,color:'#9c9080' }}>No support messages yet.</p>
@@ -367,14 +368,11 @@ const AdminDashboard = () => {
                     </div>
                   ))}
                 </div>
-
-                {/* Active thread messages + reply */}
                 {activeThread && (
                   <div style={{ display:'flex',flexDirection:'column',gap:0 }}>
                     <div style={{ maxHeight:340,overflowY:'auto',display:'flex',flexDirection:'column',gap:8,paddingBottom:12 }}>
                       {threadMessages.length === 0 && <p style={{ fontSize:13,color:'#9c9080',fontFamily:"'DM Sans',sans-serif",padding:'20px 0',textAlign:'center' }}>No messages in this thread yet.</p>}
                       {threadMessages.map(msg => {
-                        // Admin messages: sender is staff; landlord messages: sender is not staff
                         const fromAdmin = msg.sender_username === user?.username;
                         return (
                           <div key={msg.id} style={{ display:'flex',justifyContent: fromAdmin ? 'flex-end' : 'flex-start' }}>
@@ -397,7 +395,6 @@ const AdminDashboard = () => {
                         );
                       })}
                     </div>
-                    {/* Reply input */}
                     <div style={{ display:'flex',gap:8,borderTop:'1px solid #f3ede6',paddingTop:12 }}>
                       <input
                         value={supportReply}
@@ -417,7 +414,6 @@ const AdminDashboard = () => {
             </>
           )}
 
-          {/* ── Contact inbox ── */}
           {tab === 'contact-inbox' && (
             <>
               <p style={{ fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:'#1c1a17',marginBottom:20 }}>Contact Form Inbox</p>
@@ -456,7 +452,6 @@ const AdminDashboard = () => {
   );
 };
 
-/* ── User Profile Panel ──────────────────────────────────────────────────── */
 const UserProfilePanel = ({ user: u, onClose }) => {
   if (!u) return null;
   const sc = { approved:'#22c55e', pending:'#f59e0b', rejected:'#ef4444' };
@@ -468,8 +463,6 @@ const UserProfilePanel = ({ user: u, onClose }) => {
           <h2 style={{ fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:'#1c1a17' }}>User Profile</h2>
           <button onClick={onClose} style={{ background:'none',border:'none',cursor:'pointer',color:'#9c9080' }}><X size={18}/></button>
         </div>
-
-        {/* Avatar + basic info */}
         <div style={{ display:'flex',alignItems:'center',gap:14,marginBottom:24,paddingBottom:24,borderBottom:'1px solid #f3ede6' }}>
           <div style={{ width:52,height:52,borderRadius:'50%',background:'linear-gradient(135deg,#d4a96a,#c4a882)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#fff',flexShrink:0 }}>
             {(u.username||'?')[0].toUpperCase()}
@@ -486,13 +479,11 @@ const UserProfilePanel = ({ user: u, onClose }) => {
             </div>
           </div>
         </div>
-
-        {/* Contact details */}
         <div style={{ marginBottom:20 }}>
           <p style={{ fontSize:11,fontWeight:600,letterSpacing:'0.07em',textTransform:'uppercase',color:'#9c9080',marginBottom:10 }}>Contact</p>
           {[
-            { label:'Email',  value: u.email   || '—' },
-            { label:'Phone',  value: u.phone   || '—' },
+            { label:'Email',  value: u.email    || '—' },
+            { label:'Phone',  value: u.phone    || '—' },
             { label:'Name',   value: u.full_name || '—' },
           ].map(({ label, value }) => (
             <div key={label} style={{ display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #f5f0e8',fontSize:13 }}>
@@ -502,8 +493,6 @@ const UserProfilePanel = ({ user: u, onClose }) => {
           ))}
           {u.bio && <p style={{ fontSize:13,color:'#7a7060',lineHeight:1.7,marginTop:12,padding:'10px 14px',background:'#faf7f3',borderRadius:10 }}>{u.bio}</p>}
         </div>
-
-        {/* Verification */}
         {u.is_landlord && (
           <div style={{ marginBottom:20 }}>
             <p style={{ fontSize:11,fontWeight:600,letterSpacing:'0.07em',textTransform:'uppercase',color:'#9c9080',marginBottom:10 }}>Identity Verification</p>
@@ -520,7 +509,7 @@ const UserProfilePanel = ({ user: u, onClose }) => {
                   )}
                 </div>
                 {[
-                  { label:'ID Number', value: u.verification.national_id_number || '—' },
+                  { label:'ID Number',   value: u.verification.national_id_number || '—' },
                   { label:'Phone on ID', value: u.verification.phone_number || '—' },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display:'flex',justifyContent:'space-between',fontSize:12,padding:'5px 0',borderBottom:'1px solid #ede8e0' }}>
@@ -541,8 +530,6 @@ const UserProfilePanel = ({ user: u, onClose }) => {
             )}
           </div>
         )}
-
-        {/* Properties */}
         {u.is_landlord && u.properties?.length > 0 && (
           <div style={{ marginBottom:20 }}>
             <p style={{ fontSize:11,fontWeight:600,letterSpacing:'0.07em',textTransform:'uppercase',color:'#9c9080',marginBottom:10 }}>Properties ({u.properties.length})</p>
@@ -559,8 +546,6 @@ const UserProfilePanel = ({ user: u, onClose }) => {
             ))}
           </div>
         )}
-
-        {/* Applications count for tenants */}
         {!u.is_landlord && (
           <div style={{ padding:'12px 16px',background:'#faf7f3',borderRadius:12,border:'1px solid #ede8e0',fontSize:13 }}>
             <span style={{ color:'#9c9080' }}>Rental applications submitted: </span>
