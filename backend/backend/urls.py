@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 from django.http import FileResponse, Http404
 import os
 
+
 def serve_media_with_cors(request, path):
     file_path = os.path.join(settings.MEDIA_ROOT, path)
     if not os.path.exists(file_path):
@@ -13,6 +14,7 @@ def serve_media_with_cors(request, path):
     response['Access-Control-Allow-Origin'] = '*'
     response['Cross-Origin-Resource-Policy'] = 'cross-origin'
     return response
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
