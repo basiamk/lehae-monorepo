@@ -209,3 +209,61 @@ CSRF_COOKIE_SECURE = False if DEBUG else True
 SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PRODUCTION SETTINGS — append this entire block to the bottom of settings.py
+# File: backend/backend/settings.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+PRODUCTION = os.environ.get('PRODUCTION', '').lower() in ('1', 'true', 'yes')
+
+if PRODUCTION:
+    DEBUG = False
+
+    SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
+
+    # Railway gives you a URL like lehae-production-xxxx.up.railway.app
+    # Add it here after your first Railway deploy
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+
+    # PostgreSQL — Railway sets DATABASE_URL automatically
+    DATABASES = {
+        'default': dj_database_url.config(
+            env='DATABASE_URL',
+            conn_max_age=600,
+            ssl_require=True,
+        )
+    }
+
+    # WhiteNoise serves static files (CSS/JS) directly from Django
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+    # CORS — only allow requests from your Vercel frontend
+    CORS_ALLOWED_ORIGINS = [os.environ.get('FRONTEND_URL', '')]
+    CORS_ALLOW_CREDENTIALS = True
+
+    # Security headers (Railway is behind a proxy)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE   = True
+    CSRF_COOKIE_SECURE      = True
+    SECURE_HSTS_SECONDS     = 31536000
+
+    # Media files stored on Railway's filesystem
+    # Note: these reset on redeploy — for permanent storage, add R2 later
+    MEDIA_URL  = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
+
+    # Email via Gmail SMTP
+    EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST          = 'smtp.gmail.com'
+    EMAIL_PORT          = 587
+    EMAIL_USE_TLS       = True
+    EMAIL_HOST_USER     = os.environ.get('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+    DEFAULT_FROM_EMAIL  = os.environ.get('EMAIL_HOST_USER', '')
+
+    # Used in password reset emails
+    FRONTEND_URL = os.environ.get('FRONTEND_URL', '')
