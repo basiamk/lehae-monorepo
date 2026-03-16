@@ -125,6 +125,10 @@ if PRODUCTION:
     CORS_ALLOWED_ORIGINS = [
         'https://lehae-monorepo.vercel.app',
         'https://lehae-monorepo-git-main-basiamks-projects.vercel.app',
+        'https://lehae-monorepo-9asvcznc6-basiamks-projects.vercel.app',
+    ]
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r'^https://lehae-monorepo-.*\.vercel\.app$',
     ]
 else:
     CORS_ALLOW_ALL_ORIGINS = True
