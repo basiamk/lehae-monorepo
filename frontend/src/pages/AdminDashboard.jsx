@@ -241,7 +241,11 @@ const AdminDashboard = () => {
                         <td>
                           <div style={{ display:'flex',gap:6,paddingTop:4 }}>
                             <button className="ad-action" style={{ background:'#faf7f3',color:'#5a5248',border:'1px solid #ede8e0' }} onClick={()=>navigate(`/properties/${p.id}`)}><Eye size={12}/>View</button>
-                            {!p.is_approved && <button className="ad-action" style={{ background:'rgba(34,197,94,0.1)',color:'#22c55e',border:'1px solid rgba(34,197,94,0.2)' }} onClick={()=>handleApproveProperty(p.id)}><Check size={12}/>Approve</button>}
+                            {!p.is_approved
+                              ? <button className="ad-action" style={{ background:'rgba(34,197,94,0.1)',color:'#22c55e',border:'1px solid rgba(34,197,94,0.2)' }} onClick={()=>handleApproveProperty(p.id)}><Check size={12}/>Approve</button>
+                              : <button className="ad-action" style={{ background:'rgba(245,158,11,0.08)',color:'#f59e0b',border:'1px solid rgba(245,158,11,0.25)' }} onClick={()=>handleHideProperty(p.id)}><X size={12}/>Hide</button>
+                            }
+                            <button className="ad-action" style={{ background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca' }} onClick={()=>handleDeleteProperty(p.id, p.area)}><Trash2 size={12}/>Delete</button>
                           </div>
                         </td>
                       </tr>
