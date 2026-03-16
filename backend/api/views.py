@@ -27,7 +27,18 @@ logger = logging.getLogger(__name__)
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def send_notification(subject, body, recipient_email):
+    """
+    Send email notification.
+    - Never crashes a request (all exceptions caught)
+    - Enforces a 5-second socket timeout so a dead SMTP server
+      cannot hang a gunicorn worker and cause a WORKER TIMEOUT crash
+    """
+    import socket
+    if not recipient_email:
+        return
+    old_timeout = socket.getdefaulttimeout()
     try:
+        socket.setdefaulttimeout(5)
         send_mail(
             subject=subject,
             message=body,
@@ -37,6 +48,8 @@ def send_notification(subject, body, recipient_email):
         )
     except Exception as e:
         logger.warning(f"Email notification failed: {e}")
+    finally:
+        socket.setdefaulttimeout(old_timeout)
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -105,23 +118,24 @@ class ProfileView(APIView):
             'is_landlord': profile.is_landlord,
             'is_verified': profile.is_verified,
             'is_staff':    u.is_staff,
-            'full_name':   profile.full_name,
-            'phone':       profile.phone,
-            'bio':         profile.bio,
+            'full_name':   getattr(profile, 'full_name', ''),
+            'phone':       getattr(profile, 'phone', ''),
+            'bio':         getattr(profile, 'bio', ''),
         })
 
     def put(self, request):
         u = request.user
         profile, _ = UserProfile.objects.get_or_create(user=u, defaults={'is_landlord': False})
-        # Update User model fields
         if 'email' in request.data:
             u.email = request.data['email']
             u.save()
-        # Update UserProfile fields
+        needs_save = False
         for field in ('full_name', 'phone', 'bio'):
-            if field in request.data:
+            if field in request.data and hasattr(profile, field):
                 setattr(profile, field, request.data[field])
-        profile.save()
+                needs_save = True
+        if needs_save:
+            profile.save()
         return Response({
             'id':          u.id,
             'username':    u.username,
@@ -129,9 +143,9 @@ class ProfileView(APIView):
             'is_landlord': profile.is_landlord,
             'is_verified': profile.is_verified,
             'is_staff':    u.is_staff,
-            'full_name':   profile.full_name,
-            'phone':       profile.phone,
-            'bio':         profile.bio,
+            'full_name':   getattr(profile, 'full_name', ''),
+            'phone':       getattr(profile, 'phone', ''),
+            'bio':         getattr(profile, 'bio', ''),
         })
 
 
@@ -225,7 +239,6 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         user = self.request.user
-        # Staff can update anything (e.g. approve); landlords only update their own
         if not user.is_staff and user != serializer.instance.landlord:
             raise serializers.ValidationError(_('You do not have permission to update this property'))
         serializer.save()
@@ -310,14 +323,11 @@ class ContactMessageAPIView(APIView):
 
     def post(self, request):
         data = request.data.copy()
-        # Coerce empty string → null so the optional FK doesn't fail validation
         if not data.get('property') or str(data.get('property')).strip() == '':
             data['property'] = None
-
         serializer = ContactMessageSerializer(data=data)
         if serializer.is_valid():
             msg = serializer.save()
-            # Route notification: to landlord if property known, else to admin
             if msg.property:
                 recipient = msg.property.landlord.email
                 subject   = f"New enquiry for {msg.property.area}, {msg.property.district}"
@@ -326,16 +336,12 @@ class ContactMessageAPIView(APIView):
                     f"You have a new enquiry on Lehae.\n\n"
                     f"From: {msg.tenant_name} ({msg.tenant_email})\n"
                     f"Property: {msg.property.area}, {msg.property.district}\n\n"
-                    f"Message:\n{msg.message}\n\n"
-                    f"Log in to Lehae to reply."
+                    f"Message:\n{msg.message}\n\nLog in to Lehae to reply."
                 )
             else:
                 recipient = getattr(settings, 'ADMIN_EMAIL', settings.DEFAULT_FROM_EMAIL)
                 subject   = "New general enquiry via Lehae contact form"
-                body      = (
-                    f"From: {msg.tenant_name} ({msg.tenant_email})\n\n"
-                    f"Message:\n{msg.message}"
-                )
+                body      = f"From: {msg.tenant_name} ({msg.tenant_email})\n\nMessage:\n{msg.message}"
             send_notification(subject=subject, body=body, recipient_email=recipient)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -356,27 +362,26 @@ class DashboardView(APIView):
 
             if is_landlord:
                 props = Property.objects.filter(landlord=user)
-                stats.append({'id': 'properties',   'label': 'Total Properties',  'value': props.count(),                        'trend': '', 'iconBg': 'bg-blue-100'})
-                stats.append({'id': 'vacant',        'label': 'Vacant',            'value': props.filter(status='vacant').count(), 'trend': '', 'iconBg': 'bg-green-100'})
-                stats.append({'id': 'applications',  'label': 'New Applications',  'value': RentalApplication.objects.filter(property__landlord=user, status='pending').count(), 'trend': '', 'iconBg': 'bg-orange-100'})
-                stats.append({'id': 'messages',      'label': 'Unread Messages',   'value': Message.objects.filter(receiver=user, is_read=False).count(), 'trend': '', 'iconBg': 'bg-purple-100'})
+                stats.append({'id': 'properties',  'label': 'Total Properties', 'value': props.count(),                        'trend': '', 'iconBg': 'bg-blue-100'})
+                stats.append({'id': 'vacant',       'label': 'Vacant',           'value': props.filter(status='vacant').count(), 'trend': '', 'iconBg': 'bg-green-100'})
+                stats.append({'id': 'applications', 'label': 'New Applications', 'value': RentalApplication.objects.filter(property__landlord=user, status='pending').count(), 'trend': '', 'iconBg': 'bg-orange-100'})
+                stats.append({'id': 'messages',     'label': 'Unread Messages',  'value': Message.objects.filter(receiver=user, is_read=False).count(), 'trend': '', 'iconBg': 'bg-purple-100'})
             else:
-                stats.append({'id': 'favorites',    'label': 'Saved Properties',  'value': FavoriteProperty.objects.filter(user=user).count(),                           'trend': '', 'iconBg': 'bg-red-100'})
-                stats.append({'id': 'applications', 'label': 'My Applications',   'value': RentalApplication.objects.filter(applicant=user).count(),                    'trend': '', 'iconBg': 'bg-orange-100'})
-                stats.append({'id': 'viewings',     'label': 'My Viewings',       'value': ViewingRequest.objects.filter(tenant=user).exclude(status='cancelled').count(), 'trend': '', 'iconBg': 'bg-yellow-100'})
-                stats.append({'id': 'messages',     'label': 'Unread Messages',   'value': Message.objects.filter(receiver=user, is_read=False).count(),                 'trend': '', 'iconBg': 'bg-purple-100'})
+                stats.append({'id': 'favorites',    'label': 'Saved Properties', 'value': FavoriteProperty.objects.filter(user=user).count(),                             'trend': '', 'iconBg': 'bg-red-100'})
+                stats.append({'id': 'applications', 'label': 'My Applications',  'value': RentalApplication.objects.filter(applicant=user).count(),                      'trend': '', 'iconBg': 'bg-orange-100'})
+                stats.append({'id': 'viewings',     'label': 'My Viewings',      'value': ViewingRequest.objects.filter(tenant=user).exclude(status='cancelled').count(), 'trend': '', 'iconBg': 'bg-yellow-100'})
+                stats.append({'id': 'messages',     'label': 'Unread Messages',  'value': Message.objects.filter(receiver=user, is_read=False).count(),                   'trend': '', 'iconBg': 'bg-purple-100'})
 
-            # Recent applications for landlords
             recent_applications = []
             if is_landlord:
                 apps = RentalApplication.objects.filter(property__landlord=user).order_by('-created_at')[:5]
                 recent_applications = [
                     {
-                        'id':       a.id,
-                        'title':    f"Application from {a.full_name}",
+                        'id':          a.id,
+                        'title':       f"Application from {a.full_name}",
                         'description': f"{a.property.area}, {a.property.district} · {a.employment_status} · Move-in {a.move_in_date}",
-                        'status':   a.status,
-                        'time':     a.created_at.strftime('%Y-%m-%d %H:%M'),
+                        'status':      a.status,
+                        'time':        a.created_at.strftime('%Y-%m-%d %H:%M'),
                     }
                     for a in apps
                 ]
@@ -399,10 +404,10 @@ class DashboardView(APIView):
             ]
 
             return Response({
-                'stats':               stats,
-                'recentActivity':      activity_data,
-                'recentApplications':  recent_applications,
-                'upcomingTasks':       [],
+                'stats':              stats,
+                'recentActivity':     activity_data,
+                'recentApplications': recent_applications,
+                'upcomingTasks':      [],
             })
         except Exception as e:
             logger.error(f"Dashboard error: {e}")
@@ -465,8 +470,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
                 f"Hi {msg.receiver.username},\n\n"
                 f"You have a new message from {msg.sender.username}"
                 + (f" about {msg.property.area}, {msg.property.district}" if msg.property else "")
-                + f":\n\n\"{msg.content}\"\n\n"
-                f"Log in to Lehae to reply."
+                + f":\n\n\"{msg.content}\"\n\nLog in to Lehae to reply."
             ),
             recipient_email=msg.receiver.email,
         )
@@ -661,7 +665,6 @@ class RentalApplicationListCreateView(APIView):
     def get(self, request):
         user    = request.user
         profile = getattr(user, 'profile', None)
-        # Staff see all; landlords see apps on their properties; tenants see their own
         if user.is_staff:
             qs = RentalApplication.objects.all()
         elif profile and profile.is_landlord:
@@ -671,9 +674,7 @@ class RentalApplicationListCreateView(APIView):
         return Response(RentalApplicationSerializer(qs, many=True).data)
 
     def post(self, request):
-        # Ensure UserProfile exists — superusers don't get one automatically
         UserProfile.objects.get_or_create(user=request.user, defaults={'is_landlord': False})
-
         if RentalApplication.objects.filter(
             property_id=request.data.get('property'),
             applicant=request.user
@@ -756,17 +757,13 @@ class LandlordVerificationView(APIView):
             return Response({'status': 'not_submitted'})
 
     def post(self, request):
-        # Ensure UserProfile exists
         UserProfile.objects.get_or_create(user=request.user, defaults={'is_landlord': True})
-
         existing = LandlordVerification.objects.filter(landlord=request.user).first()
         if existing and existing.status == 'approved':
             return Response({'error': 'Already verified.'}, status=status.HTTP_400_BAD_REQUEST)
-
         serializer = LandlordVerificationSerializer(
             existing, data=request.data, partial=True
         ) if existing else LandlordVerificationSerializer(data=request.data)
-
         if serializer.is_valid():
             v = serializer.save(landlord=request.user)
             send_notification(
@@ -822,33 +819,23 @@ class LandlordVerificationAdminView(APIView):
 # ── Support Messages (landlord ↔ admin) ───────────────────────────────────────
 
 class SupportMessageView(APIView):
-    """
-    Landlords send/read messages with the Lehae admin.
-    Admins read all support threads and reply.
-    Uses the existing Message model with is_support=True.
-    """
     permission_classes = [IsAuthenticated]
 
     def _get_admin(self):
-        """Return the first staff user as the admin recipient."""
         return User.objects.filter(is_staff=True).first()
 
     def get(self, request, landlord_id=None):
         user = request.user
-
         if user.is_staff:
-            # Admin: if landlord_id given, get that thread; else list all threads
             if landlord_id:
                 msgs = Message.objects.filter(
                     is_support=True
                 ).filter(
                     Q(sender_id=landlord_id) | Q(receiver_id=landlord_id)
                 ).order_by('created_at')
-                # Mark as read
                 msgs.filter(receiver=user, is_read=False).update(is_read=True)
                 return Response(MessageSerializer(msgs, many=True, context={'request': request}).data)
             else:
-                # Return list of unique landlords with support threads
                 msgs = Message.objects.filter(is_support=True).order_by('-created_at')
                 seen = {}
                 for m in msgs:
@@ -868,7 +855,6 @@ class SupportMessageView(APIView):
                         }
                 return Response(list(seen.values()))
         else:
-            # Landlord: get their thread with admin
             admin = self._get_admin()
             if not admin:
                 return Response({'error': 'Support not available yet.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -885,42 +871,35 @@ class SupportMessageView(APIView):
         content = request.data.get('content', '').strip()
         if not content:
             return Response({'error': 'Message cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
-
         if user.is_staff:
-            # Admin replying to a landlord
             if not landlord_id:
                 return Response({'error': 'landlord_id required.'}, status=status.HTTP_400_BAD_REQUEST)
             receiver = get_object_or_404(User, pk=landlord_id)
         else:
-            # Landlord messaging the admin
             receiver = User.objects.filter(is_staff=True).first()
             if not receiver:
                 return Response({'error': 'Support not available.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
         msg = Message.objects.create(
             sender=user,
             receiver=receiver,
             content=content,
             is_support=True,
         )
-        # Email notification
         send_notification(
             subject=f"{'Support reply from Lehae' if user.is_staff else 'New support message from ' + user.username}",
             body=(
                 f"Hi {receiver.username},\n\n"
                 f"{'Lehae Admin' if user.is_staff else user.username} sent you a message:\n\n"
-                f"\"{content}\"\n\n"
-                f"Log in to Lehae to view and reply."
+                f"\"{content}\"\n\nLog in to Lehae to view and reply."
             ),
             recipient_email=receiver.email,
         )
         return Response(MessageSerializer(msg, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
-# ── Contact Inbox (admin view of all ContactMessage records) ──────────────────
+# ── Contact Inbox ─────────────────────────────────────────────────────────────
 
 class ContactInboxView(APIView):
-    """Admin-only: view all contact form messages."""
     permission_classes = [IsAdminUser]
 
     def get(self, request):
@@ -947,14 +926,12 @@ class ContactInboxView(APIView):
 # ── Admin: full user profile view ─────────────────────────────────────────────
 
 class AdminUserProfileView(APIView):
-    """Admin-only: get full profile of any user by ID."""
     permission_classes = [IsAdminUser]
 
     def get(self, request, pk):
         u = get_object_or_404(User, pk=pk)
         profile, _ = UserProfile.objects.get_or_create(user=u, defaults={'is_landlord': False})
 
-        # Properties if landlord
         properties = []
         if profile.is_landlord:
             props = Property.objects.filter(landlord=u).values(
@@ -962,7 +939,6 @@ class AdminUserProfileView(APIView):
             )
             properties = list(props)
 
-        # Verification record if exists
         verification = None
         try:
             v = u.verification
@@ -978,7 +954,6 @@ class AdminUserProfileView(APIView):
         except LandlordVerification.DoesNotExist:
             pass
 
-        # Applications count
         applications_count = RentalApplication.objects.filter(applicant=u).count()
 
         return Response({
@@ -988,9 +963,9 @@ class AdminUserProfileView(APIView):
             'is_staff':            u.is_staff,
             'is_landlord':         profile.is_landlord,
             'is_verified':         profile.is_verified,
-            'full_name':           profile.full_name,
-            'phone':               profile.phone,
-            'bio':                 profile.bio,
+            'full_name':           getattr(profile, 'full_name', ''),
+            'phone':               getattr(profile, 'phone', ''),
+            'bio':                 getattr(profile, 'bio', ''),
             'date_joined':         u.date_joined.isoformat(),
             'properties':          properties,
             'verification':        verification,
@@ -1001,7 +976,6 @@ class AdminUserProfileView(APIView):
 # ── Password Reset ────────────────────────────────────────────────────────────
 
 class PasswordResetRequestView(APIView):
-    """Step 1: user submits email → receive reset link."""
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -1015,9 +989,8 @@ class PasswordResetRequestView(APIView):
 
         user = User.objects.filter(email__iexact=email).first()
         if user:
-            uid   = urlsafe_base64_encode(force_bytes(user.pk))
-            token = default_token_generator.make_token(user)
-            # In production swap localhost for your real frontend domain
+            uid       = urlsafe_base64_encode(force_bytes(user.pk))
+            token     = default_token_generator.make_token(user)
             frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
             reset_url = f"{frontend_url}/reset-password/{uid}/{token}/"
             send_notification(
@@ -1025,19 +998,17 @@ class PasswordResetRequestView(APIView):
                 body=(
                     f"Hi {user.username},\n\n"
                     f"We received a request to reset your password.\n\n"
-                    f"Click the link below to set a new password (valid for 24 hours):\n\n"
+                    f"Click the link below (valid for 24 hours):\n\n"
                     f"{reset_url}\n\n"
-                    f"If you didn't request this, you can ignore this email.\n\n"
+                    f"If you didn't request this, ignore this email.\n\n"
                     f"The Lehae Team"
                 ),
                 recipient_email=user.email,
             )
-        # Always return 200 — don't reveal whether email exists
         return Response({'message': 'If that email is registered, a reset link has been sent.'})
 
 
 class PasswordResetConfirmView(APIView):
-    """Step 2: user clicks link → submits new password."""
     permission_classes = [AllowAny]
 
     def post(self, request):
