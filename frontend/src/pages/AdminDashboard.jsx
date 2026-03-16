@@ -81,6 +81,23 @@ const AdminDashboard = () => {
     } catch { setError('Failed to approve property.'); }
   };
 
+  const handleHideProperty = async (id) => {
+    try {
+      await propertyAPI.updateProperty(id, { is_approved: false });
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, is_approved: false } : p));
+      notify('Property hidden from tenants.');
+    } catch { setError('Failed to hide property.'); }
+  };
+
+  const handleDeleteProperty = async (id, area) => {
+    if (!window.confirm(`Permanently delete "${area}"? This cannot be undone.`)) return;
+    try {
+      await axiosInstance.delete(`/api/properties/${id}/`);
+      setProperties(prev => prev.filter(p => p.id !== id));
+      notify('Property deleted.');
+    } catch { setError('Failed to delete property.'); }
+  };
+
   const handleVerifyUser = async (id) => {
     try {
       await favoritesAPI.verifyUser(id);

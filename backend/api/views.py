@@ -244,7 +244,7 @@ class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
         serializer.save()
 
     def perform_destroy(self, instance):
-        if self.request.user != instance.landlord:
+        if not self.request.user.is_staff and self.request.user != instance.landlord:
             raise serializers.ValidationError(_('You do not have permission to delete this property'))
         instance.delete()
 
