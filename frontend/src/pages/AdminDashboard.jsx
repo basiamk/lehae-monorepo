@@ -159,12 +159,7 @@ const AdminDashboard = () => {
     <div className="page-enter min-h-screen bg-neutral-50">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500&display=swap');
-        .ad-table { width:100%; border-collapse:collapse; font-family:'DM Sans',sans-serif; font-size:13.5px; }
-        .ad-table th { text-align:left; font-size:10.5px; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:#9c9080; padding:0 0 12px; border-bottom:1px solid #f3ede6; }
-        .ad-table td { padding:13px 0; border-bottom:1px solid #f5f0e8; color:#1c1a17; vertical-align:middle; }
-        .ad-table tr:last-child td { border-bottom:none; }
         .ad-action { display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:8px; border:none; cursor:pointer; font-size:12px; font-weight:500; font-family:'DM Sans',sans-serif; transition:all 0.15s; }
-        .ad-badge { padding:3px 10px; border-radius:100px; font-size:11px; font-weight:500; }
       `}</style>
 
       <div style={{ background:'#1c1a17', paddingTop:48, paddingBottom:48 }}>
@@ -217,18 +212,20 @@ const AdminDashboard = () => {
                 <strong style={{color:'#a8895f'}}>What you're approving:</strong> That this listing is genuine — real photos, plausible price, legitimate description. No ownership documents required from landlords.
               </div>
               {properties.length === 0 ? <p style={{ color:'#9c9080',fontSize:13 }}>No properties yet.</p> : (
-                <table className="ad-table">
-                  <thead><tr><th>Property</th><th>Landlord</th><th>Status</th><th>Approved</th><th>Actions</th></tr></thead>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontFamily:"'DM Sans',sans-serif", fontSize:13.5 }}>
+                  <thead><tr>{["Property","Landlord","Status","Approved","Actions"].map(h=><th key={h} style={{textAlign:"left",fontSize:10.5,fontWeight:600,letterSpacing:"0.07em",textTransform:"uppercase",color:"#9c9080",padding:"0 0 12px",borderBottom:"1px solid #f3ede6"}}>{h}</th>)}</tr></thead>
                   <tbody>
-                    {properties.map(p => (
-                      <tr key={p.id}>
+                    {properties.map((p,i) => (
+                      <tr key={p.id} style={{borderBottom: i < properties.length-1 ? "1px solid #f5f0e8" : "none"}}>
                         <td><div style={{ fontWeight:500 }}>{p.area}</div><div style={{ fontSize:11,color:'#9c9080' }}>{p.district}</div></td>
-                        <td style={{ color:'#7a7060' }}>{p.landlord_username}</td>
-                        <td><span className="ad-badge" style={{ background:p.status==='vacant'?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)', color:p.status==='vacant'?'#22c55e':'#ef4444' }}>{p.status}</span></td>
-                        <td><span className="ad-badge" style={{ background:p.is_approved?'rgba(34,197,94,0.1)':'rgba(245,158,11,0.1)', color:p.is_approved?'#22c55e':'#f59e0b' }}>{p.is_approved ? 'Approved' : 'Pending'}</span></td>
-                        <td style={{ display:'flex',gap:6,paddingTop:13 }}>
-                          <button className="ad-action" style={{ background:'#faf7f3',color:'#5a5248',border:'1px solid #ede8e0' }} onClick={()=>navigate(`/properties/${p.id}`)}><Eye size={12}/>View</button>
-                          {!p.is_approved && <button className="ad-action" style={{ background:'rgba(34,197,94,0.1)',color:'#22c55e',border:'1px solid rgba(34,197,94,0.2)' }} onClick={()=>handleApproveProperty(p.id)}><Check size={12}/>Approve</button>}
+                        <td style={{padding:"12px 8px 12px 0",color:"#7a7060",verticalAlign:"middle",fontSize:13}}>{p.landlord_username}</td>
+                        <td><span style={{ padding:"3px 10px",borderRadius:100,fontSize:11,fontWeight:500, background:p.status==='vacant'?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)', color:p.status==='vacant'?'#22c55e':'#ef4444' }}>{p.status}</span></td>
+                        <td><span style={{ padding:"3px 10px",borderRadius:100,fontSize:11,fontWeight:500, background:p.is_approved?'rgba(34,197,94,0.1)':'rgba(245,158,11,0.1)', color:p.is_approved?'#22c55e':'#f59e0b' }}>{p.is_approved ? 'Approved' : 'Pending'}</span></td>
+                        <td>
+                          <div style={{ display:'flex',gap:6,paddingTop:4 }}>
+                            <button className="ad-action" style={{ background:'#faf7f3',color:'#5a5248',border:'1px solid #ede8e0' }} onClick={()=>navigate(`/properties/${p.id}`)}><Eye size={12}/>View</button>
+                            {!p.is_approved && <button className="ad-action" style={{ background:'rgba(34,197,94,0.1)',color:'#22c55e',border:'1px solid rgba(34,197,94,0.2)' }} onClick={()=>handleApproveProperty(p.id)}><Check size={12}/>Approve</button>}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -242,11 +239,11 @@ const AdminDashboard = () => {
             <>
               <p style={{ fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:'#1c1a17',marginBottom:20 }}>All Users</p>
               {users.length === 0 ? <p style={{ color:'#9c9080',fontSize:13 }}>No users yet.</p> : (
-                <table className="ad-table">
-                  <thead><tr><th>User</th><th>Role</th><th>Verified</th><th>Actions</th></tr></thead>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontFamily:"'DM Sans',sans-serif", fontSize:13.5 }}>
+                  <thead><tr>{["User","Role","Verified","Actions"].map(h=><th key={h} style={{textAlign:"left",fontSize:10.5,fontWeight:600,letterSpacing:"0.07em",textTransform:"uppercase",color:"#9c9080",padding:"0 0 12px",borderBottom:"1px solid #f3ede6"}}>{h}</th>)}</tr></thead>
                   <tbody>
-                    {users.map(u => (
-                      <tr key={u.id}>
+                    {users.map((u,i) => (
+                      <tr key={u.id} style={{borderBottom: i < users.length-1 ? "1px solid #f5f0e8" : "none"}}>
                         <td>
                           <div style={{ display:'flex',alignItems:'center',gap:10 }}>
                             <div style={{ width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#d4a96a,#c4a882)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'#fff',flexShrink:0 }}>
@@ -255,12 +252,14 @@ const AdminDashboard = () => {
                             <div><div style={{ fontWeight:500 }}>{u.username}</div><div style={{ fontSize:11,color:'#9c9080' }}>{u.email}</div></div>
                           </div>
                         </td>
-                        <td><span className="ad-badge" style={{ background:u.profile?.is_landlord?'rgba(196,168,130,0.15)':'rgba(148,163,184,0.15)', color:u.profile?.is_landlord?'#a8895f':'#64748b' }}>{u.profile?.is_landlord ? 'Landlord' : 'Tenant'}</span></td>
-                        <td><span className="ad-badge" style={{ background:u.profile?.is_verified?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)', color:u.profile?.is_verified?'#22c55e':'#ef4444' }}>{u.profile?.is_verified ? 'Verified' : 'Unverified'}</span></td>
-                        <td style={{ display:'flex',gap:6,paddingTop:13 }}>
-                          <button className="ad-action" style={{ background:'#faf7f3',color:'#5a5248',border:'1px solid #ede8e0' }} onClick={()=>fetchUserProfile(u.id)}><Eye size={12}/>View</button>
-                          {!u.profile?.is_verified && <button className="ad-action" style={{ background:'rgba(34,197,94,0.1)',color:'#22c55e',border:'1px solid rgba(34,197,94,0.2)' }} onClick={()=>handleVerifyUser(u.id)}><Check size={12}/>Verify</button>}
-                          <button className="ad-action" style={{ background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca' }} onClick={()=>handleBanUser(u.id)}><Trash2 size={12}/>Remove</button>
+                        <td><span style={{ padding:"3px 10px",borderRadius:100,fontSize:11,fontWeight:500, background:u.profile?.is_landlord?'rgba(196,168,130,0.15)':'rgba(148,163,184,0.15)', color:u.profile?.is_landlord?'#a8895f':'#64748b' }}>{u.profile?.is_landlord ? 'Landlord' : 'Tenant'}</span></td>
+                        <td><span style={{ padding:"3px 10px",borderRadius:100,fontSize:11,fontWeight:500, background:u.profile?.is_verified?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)', color:u.profile?.is_verified?'#22c55e':'#ef4444' }}>{u.profile?.is_verified ? 'Verified' : 'Unverified'}</span></td>
+                        <td>
+                          <div style={{ display:'flex',gap:6,paddingTop:4 }}>
+                            <button className="ad-action" style={{ background:'#faf7f3',color:'#5a5248',border:'1px solid #ede8e0' }} onClick={()=>fetchUserProfile(u.id)}><Eye size={12}/>View</button>
+                            {!u.profile?.is_verified && <button className="ad-action" style={{ background:'rgba(34,197,94,0.1)',color:'#22c55e',border:'1px solid rgba(34,197,94,0.2)' }} onClick={()=>handleVerifyUser(u.id)}><Check size={12}/>Verify</button>}
+                            <button className="ad-action" style={{ background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca' }} onClick={()=>handleBanUser(u.id)}><Trash2 size={12}/>Remove</button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -277,11 +276,11 @@ const AdminDashboard = () => {
                 <strong style={{color:'#a8895f'}}>What you're approving:</strong> That this is a real person with a valid ID — not that they own specific properties. Once approved, their verified badge applies to all their listings permanently.
               </div>
               {verifications.length === 0 ? <p style={{ color:'#9c9080',fontSize:13 }}>No verification requests yet.</p> : (
-                <table className="ad-table">
-                  <thead><tr><th>Landlord</th><th>ID Number</th><th>Phone</th><th>ID Document</th><th>Status</th><th>Actions</th></tr></thead>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontFamily:"'DM Sans',sans-serif", fontSize:13.5 }}>
+                  <thead><tr>{["Landlord","ID Number","Phone","ID Document","Status","Actions"].map(h=><th key={h} style={{textAlign:"left",fontSize:10.5,fontWeight:600,letterSpacing:"0.07em",textTransform:"uppercase",color:"#9c9080",padding:"0 0 12px",borderBottom:"1px solid #f3ede6"}}>{h}</th>)}</tr></thead>
                   <tbody>
-                    {verifications.map(v => (
-                      <tr key={v.id}>
+                    {verifications.map((v,i) => (
+                      <tr key={v.id} style={{borderBottom: i < verifications.length-1 ? "1px solid #f5f0e8" : "none"}}>
                         <td style={{ fontWeight:500 }}>{v.landlord_username}</td>
                         <td style={{ color:'#7a7060' }}>{v.national_id_number || '—'}</td>
                         <td style={{ color:'#7a7060' }}>{v.phone_number || '—'}</td>
@@ -290,12 +289,14 @@ const AdminDashboard = () => {
                             ? <a href={v.id_document_url} target="_blank" rel="noopener noreferrer" style={{ fontSize:12,color:'#3b82f6',textDecoration:'underline' }}>📄 View ID doc</a>
                             : <span style={{ fontSize:12,color:'#c4bdb4' }}>No document uploaded</span>}
                         </td>
-                        <td><span className="ad-badge" style={{ background:v.status==='approved'?'rgba(34,197,94,0.1)':v.status==='rejected'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)', color:v.status==='approved'?'#22c55e':v.status==='rejected'?'#ef4444':'#f59e0b' }}>{v.status}</span></td>
-                        <td style={{ display:'flex',gap:6,paddingTop:13 }}>
+                        <td><span style={{ padding:"3px 10px",borderRadius:100,fontSize:11,fontWeight:500, background:v.status==='approved'?'rgba(34,197,94,0.1)':v.status==='rejected'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)', color:v.status==='approved'?'#22c55e':v.status==='rejected'?'#ef4444':'#f59e0b' }}>{v.status}</span></td>
+                        <td>
+                          <div style={{ display:'flex',gap:6,paddingTop:4 }}>
                           {v.status === 'pending' && <>
                             <button className="ad-action" style={{ background:'rgba(34,197,94,0.1)',color:'#22c55e',border:'1px solid rgba(34,197,94,0.2)' }} onClick={()=>handleVerification(v.id,'approved')}><Check size={12}/>Approve</button>
                             <button className="ad-action" style={{ background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca' }} onClick={()=>handleVerification(v.id,'rejected')}><X size={12}/>Reject</button>
                           </>}
+                          </div>
                         </td>
                       </tr>
                     ))}
