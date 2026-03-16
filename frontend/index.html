@@ -1,47 +1,53 @@
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
- 
-  <!-- Primary Meta Tags -->
-  <title>Lehae - Find Your Home in Lesotho</title>
-  <meta name="title" content="Lehae - Find Your Home in Lesotho" />
-  <meta name="description" content="Discover verified rental properties, connect directly with landlords, and find your perfect home in Lesotho. Safe, simple, and trusted." />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
 
-  <!-- Open Graph / Facebook -->
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://your-domain.com/" /> <!-- ← replace with your real domain when you have one -->
-  <meta property="og:title" content="Lehae - Find Your Home in Lesotho" />
-  <meta property="og:description" content="Discover verified rental properties, connect directly with landlords, and find your perfect home in Lesotho." />
-  <meta property="og:image" content="%PUBLIC_URL%/og-image.jpg" /> <!-- add a nice 1200×630 image later -->
+    <!-- Primary Meta Tags -->
+    <title>Lehae — Find Your Home in Lesotho</title>
+    <meta name="title" content="Lehae — Find Your Home in Lesotho" />
+    <meta name="description" content="Discover verified rental properties, connect directly with landlords, and find your perfect home in Lesotho. Safe, simple, and trusted." />
 
-  <!-- Twitter -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Lehae - Find Your Home in Lesotho" />
-  <meta name="twitter:description" content="Discover verified rental properties in Lesotho." />
-  <meta name="twitter:image" content="%PUBLIC_URL%/og-image.jpg" />
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lehae-monorepo.vercel.app/" />
+    <meta property="og:title" content="Lehae — Find Your Home in Lesotho" />
+    <meta property="og:description" content="Discover verified rental properties, connect directly with landlords, and find your perfect home in Lesotho." />
+    <meta property="og:image" content="/og-image.jpg" />
 
-  <!-- Favicon & App Icons (add these files later in /public) -->
-  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-  <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png" />
-  <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lehae — Find Your Home in Lesotho" />
+    <meta name="twitter:description" content="Discover verified rental properties in Lesotho." />
+    <meta name="twitter:image" content="/og-image.jpg" />
 
-  <!-- Fonts - already good, keeping Space Grotesk + Poppins -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- Theme color (browser tab + Android status bar) -->
+    <meta name="theme-color" content="#1c1a17" />
 
-  <!-- Theme Color (shows in browser tab on mobile) -->
-  <meta name="theme-color" content="#10b981" />
+    <!-- PWA / installable app -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Lehae" />
+    <link rel="manifest" href="/manifest.json" />
 
-  <!-- PWA Manifest (for future installable app feel) -->
-  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-</head>
-<body class="antialiased">
-  <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
-</body>
+    <!-- Favicon & App Icons -->
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body class="antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

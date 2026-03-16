@@ -195,10 +195,10 @@ const PropertyDetail = () => {
 
       {/* Detail card */}
       <div className="max-w-6xl mx-auto px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{alignItems:"start"}}>
 
           {/* Left — main info */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2" style={{order:2}}>
             <div style={{background:'#fff',border:'1px solid #ede8e0',borderRadius:20,padding:32,marginBottom:20}}>
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,marginBottom:24}}>
                 <div>
@@ -235,7 +235,7 @@ const PropertyDetail = () => {
               </div>
 
               {/* Stats grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+              <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12,marginBottom:32}}>
                 <div className="detail-stat">
                   <div className="detail-stat-icon"><DollarSign size={16} style={{color:'#d4a96a'}}/></div>
                   <div className="detail-stat-label">{t('rental')}</div>
@@ -295,7 +295,7 @@ const PropertyDetail = () => {
           </div>
 
           {/* Right — contact card */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1" style={{order:1}}>
             <div style={{background:'#fff',border:'1px solid #ede8e0',borderRadius:20,padding:24,position:'sticky',top:90}}>
               {/* Price */}
               <div style={{borderBottom:'1px solid #f3ede6',paddingBottom:20,marginBottom:20}}>
@@ -388,7 +388,7 @@ const PropertyDetail = () => {
           </div>
 
           {/* Map */}
-          <div className="lg:col-span-2" style={{ marginTop:8 }}>
+          <div className="lg:col-span-2" style={{ marginTop:8, order:3 }}>
             <h2 style={{ fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:'#1c1a17',marginBottom:12 }}>Location</h2>
             <PropertyMap property={property} height="260px" />
             <p style={{ fontSize:11,color:'#b5a898',marginTop:6,fontFamily:"'DM Sans',sans-serif" }}>
@@ -397,7 +397,7 @@ const PropertyDetail = () => {
           </div>
 
           {/* Reviews */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2" style={{order:2}}>
             <ReviewSection propertyId={id} />
           </div>
 

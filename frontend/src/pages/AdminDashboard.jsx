@@ -191,7 +191,7 @@ const AdminDashboard = () => {
         {success && <div style={{ marginBottom:14,padding:'12px 16px',borderRadius:11,background:'#f0fdf4',border:'1px solid #86efac',color:'#16a34a',fontSize:13,fontFamily:"'DM Sans',sans-serif",display:'flex',alignItems:'center',gap:7 }}><Check size={14}/>{success}</div>}
         {error   && <div style={{ marginBottom:14,padding:'12px 16px',borderRadius:11,background:'#fef2f2',border:'1px solid #fecaca',color:'#dc2626',fontSize:13,fontFamily:"'DM Sans',sans-serif",display:'flex',alignItems:'center',gap:7 }}><AlertCircle size={14}/>{error}<button onClick={()=>setError('')} style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'#dc2626'}}><X size={13}/></button></div>}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:16,marginBottom:32}}>
           {[
             { icon:Home,        label:'Total Properties',  value:properties.length,           color:'#d4a96a' },
             { icon:Users,       label:'Total Users',        value:users.length,                color:'#c4a882' },
@@ -211,7 +211,7 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        <div style={{ display:'flex',flexWrap:'wrap',gap:4,background:'#faf7f3',borderRadius:12,padding:4,marginBottom:20,width:'fit-content',border:'1px solid #ede8e0' }}>
+        <div style={{ display:'flex',overflowX:'auto',gap:4,background:'#faf7f3',borderRadius:12,padding:4,marginBottom:20,border:'1px solid #ede8e0',WebkitOverflowScrolling:'touch',scrollbarWidth:'none',msOverflowStyle:'none' }}>
           <TabBtn active={tab==='properties'}    onClick={()=>setTab('properties')}>Properties <Badge count={pendingProperties.length}/></TabBtn>
           <TabBtn active={tab==='users'}         onClick={()=>setTab('users')}>Users</TabBtn>
           <TabBtn active={tab==='verifications'} onClick={()=>setTab('verifications')}><Badge count={pendingVerifications.length} color="#22c55e"/>Verifications</TabBtn>

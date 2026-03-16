@@ -34,7 +34,7 @@ const Home = () => {
     const fetchFeatured = async () => {
       try {
         setLoading(true); setError('');
-        const response = await axiosInstance.get('/api/properties/', { params: { limit: 9, ordering: '-created_at' } });
+        const response = await axiosInstance.get('/api/properties/', { params: { limit: 9, ordering: '-created_at', is_approved: 'true' } });
         if (cancelled) return;
         const data = Array.isArray(response.data) ? response.data : response.data.results || [];
         setFeaturedProperties(data);
@@ -47,7 +47,10 @@ const Home = () => {
 
   const handleSearchChange = (e) => setSearchFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
   const handleSearch = () => navigate(`/properties?${new URLSearchParams(searchFilters).toString()}`);
-  const carouselPages = Math.ceil(featuredProperties.length / 3);
+  const carouselPages   = Math.ceil(featuredProperties.length / 3);
+  const [mobileIndex, setMobileIndex] = useState(0);
+  const mobilePrev = () => setMobileIndex(i => i === 0 ? featuredProperties.length - 1 : i - 1);
+  const mobileNext = () => setMobileIndex(i => i >= featuredProperties.length - 1 ? 0 : i + 1);
   const handlePrev = () => setCurrentIndex(prev => (prev === 0 ? carouselPages - 1 : prev - 1));
   const handleNext = () => setCurrentIndex(prev => (prev >= carouselPages - 1 ? 0 : prev + 1));
 
@@ -69,7 +72,29 @@ const Home = () => {
         .step-num { font-family:'Playfair Display',serif; font-size:48px; font-weight:700; color:rgba(196,168,130,0.2); line-height:1; margin-bottom:8px; }
         .star { color:#d4a96a; font-size:14px; }
         .testimonial-card { background:#fff; border:1px solid #ede8e0; border-radius:20px; padding:28px; }
+        .featured-desktop-carousel { display:block; }
+        .featured-mobile-carousel { display:none; }
+        @media (max-width: 767px) {
+          .featured-desktop-carousel { display:none; }
+          .featured-mobile-carousel { display:block; }
+        }
         .trust-badge { display:flex; align-items:center; gap:8px; padding:10px 18px; background:#faf7f3; border:1px solid #ede8e0; border-radius:12px; font-size:13px; color:#5a5248; font-weight:500; }
+        /* Mobile overrides */
+        .hero-search-grid { display:grid; grid-template-columns:1fr; gap:8px; }
+        .featured-view-all { display:none; }
+        .how-it-works-grid { display:grid; grid-template-columns:1fr; gap:16px; }
+        .trust-badges-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+        .hero-inner { padding-top: 80px; padding-bottom: 48px; }
+        @media (min-width: 768px) {
+          .hero-inner { padding-top: 40px; padding-bottom: 40px; }
+        }
+        @media (min-width: 640px) {
+          .featured-view-all { display:flex; }
+        }
+        @media (min-width: 768px) {
+          .hero-search-grid { grid-template-columns: 1fr 1fr 1fr auto; gap:8px; }
+          .how-it-works-grid { grid-template-columns: repeat(3,1fr); }
+        }
       `}</style>
 
       {/* ── Hero ── */}
@@ -79,7 +104,7 @@ const Home = () => {
         <div className="absolute inset-0" style={{ background:'linear-gradient(135deg,rgba(28,26,23,0.82) 0%,rgba(28,26,23,0.55) 100%)' }} />
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage:'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\' opacity=\'1\'/%3E%3C/svg%3E")', backgroundRepeat:'repeat' }} />
 
-        <div className="relative z-10 w-full max-w-5xl mx-auto px-6 text-center">
+        <div className="hero-inner relative z-10 w-full max-w-5xl mx-auto px-6 text-center">
           <motion.p className="text-sm font-medium tracking-widest uppercase mb-6" style={{ color:'#d4a96a', letterSpacing:'0.15em' }}
             initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.2 }}>
             Lesotho's Rental Platform
@@ -98,16 +123,16 @@ const Home = () => {
           {/* Search bar */}
           <motion.div className="bg-white rounded-2xl p-3 shadow-soft max-w-3xl mx-auto" style={{ border:'1px solid #ede8e0' }}
             initial={{ opacity:0, y:30 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.65 }}>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-              <div className="relative md:col-span-1">
+            <div className="hero-search-grid">
+              <div style={{position:"relative"}}>
                 <input type="text" name="area" placeholder={t('area_e_g_ha_tsolo')} value={searchFilters.area} onChange={handleSearchChange} className="hero-input" />
                 <span className="hero-icon"><Search size={15}/></span>
               </div>
-              <div className="relative md:col-span-1">
+              <div style={{position:"relative"}}>
                 <input type="text" name="district" placeholder={t('district_e_g_maseru')} value={searchFilters.district} onChange={handleSearchChange} className="hero-input" />
                 <span className="hero-icon"><Search size={15}/></span>
               </div>
-              <div className="relative md:col-span-1">
+              <div style={{position:"relative"}}>
                 <select name="status" value={searchFilters.status} onChange={handleSearchChange} className="hero-input hero-select">
                   <option value="">{t('all_statuses')}</option>
                   <option value="vacant">{t('vacant')}</option>
@@ -173,7 +198,7 @@ const Home = () => {
               </h2>
             </div>
             <button onClick={() => navigate('/properties')}
-              className="hidden md:flex items-center gap-2 text-sm font-medium transition-colors"
+              className="featured-view-all items-center gap-2 text-sm font-medium transition-colors"
               style={{ color:'#9c9080' }}
               onMouseEnter={e=>e.currentTarget.style.color='#1c1a17'}
               onMouseLeave={e=>e.currentTarget.style.color='#9c9080'}>
@@ -194,7 +219,9 @@ const Home = () => {
               </button>
             </div>
           ) : (
-            <div className="relative">
+            <>
+            {/* Desktop: 3-up carousel */}
+            <div className="featured-desktop-carousel relative">
               <div className="overflow-hidden">
                 <motion.div className="flex"
                   animate={{ x:`-${currentIndex * (100/3)}%` }}
@@ -208,16 +235,69 @@ const Home = () => {
                 </motion.div>
               </div>
               {[
-                { dir:'prev', icon:ChevronLeft,  pos:'left-0',  fn:handlePrev, disabled:currentIndex===0 },
-                { dir:'next', icon:ChevronRight, pos:'right-0', fn:handleNext, disabled:currentIndex>=carouselPages-1 },
-              ].map(({ dir, icon:Icon, pos, fn, disabled }) => (
+                { dir:'prev', icon:ChevronLeft,  fn:handlePrev, disabled:currentIndex===0, side:'left' },
+                { dir:'next', icon:ChevronRight, fn:handleNext, disabled:currentIndex>=carouselPages-1, side:'right' },
+              ].map(({ dir, icon:Icon, fn, disabled, side }) => (
                 <button key={dir} onClick={fn} disabled={disabled}
-                  className={`absolute ${pos} top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white border border-neutral-200 flex items-center justify-center shadow-soft transition-all disabled:opacity-30 z-10`}
-                  style={{ margin:dir==='prev'?'0 0 0 -20px':'0 -20px 0 0' }}>
-                  <Icon size={18} className="text-secondary"/>
+                  style={{ position:'absolute', [side]:'-20px', top:'50%', transform:'translateY(-50%)',
+                    width:44, height:44, borderRadius:'50%', background:'#fff', border:'1px solid #ede8e0',
+                    display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
+                    opacity:disabled?0.3:1, transition:'opacity 0.2s', zIndex:10, boxShadow:'0 2px 8px rgba(0,0,0,0.08)' }}>
+                  <Icon size={18} style={{ color:'#5a5248' }}/>
                 </button>
               ))}
             </div>
+
+            {/* Mobile: 1-up carousel */}
+            <div className="featured-mobile-carousel" style={{ position:'relative', marginTop:16 }}>
+              <div style={{ overflow:'hidden', borderRadius:20 }}>
+                <motion.div
+                  key={mobileIndex}
+                  initial={{ opacity:0, x:40 }}
+                  animate={{ opacity:1, x:0 }}
+                  exit={{ opacity:0, x:-40 }}
+                  transition={{ duration:0.3, ease:'easeOut' }}>
+                  <PropertyCard property={featuredProperties[mobileIndex]} onFavoriteToggle={() => {}} />
+                </motion.div>
+              </div>
+
+              {/* Prev / Next buttons */}
+              {featuredProperties.length > 1 && (
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, marginTop:16 }}>
+                  <button onClick={mobilePrev}
+                    style={{ width:38, height:38, borderRadius:'50%', background:'#fff', border:'1px solid #ede8e0',
+                      display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
+                      boxShadow:'0 2px 8px rgba(0,0,0,0.08)' }}>
+                    <ChevronLeft size={16} style={{ color:'#5a5248' }}/>
+                  </button>
+
+                  {/* Dot indicators */}
+                  <div style={{ display:'flex', gap:6 }}>
+                    {featuredProperties.map((_, i) => (
+                      <button key={i} onClick={() => setMobileIndex(i)}
+                        style={{ width: i===mobileIndex ? 20 : 7, height:7, borderRadius:4,
+                          background: i===mobileIndex ? '#d4a96a' : '#ede8e0',
+                          border:'none', cursor:'pointer', padding:0,
+                          transition:'all 0.25s ease' }}
+                      />
+                    ))}
+                  </div>
+
+                  <button onClick={mobileNext}
+                    style={{ width:38, height:38, borderRadius:'50%', background:'#fff', border:'1px solid #ede8e0',
+                      display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
+                      boxShadow:'0 2px 8px rgba(0,0,0,0.08)' }}>
+                    <ChevronRight size={16} style={{ color:'#5a5248' }}/>
+                  </button>
+                </div>
+              )}
+
+              {/* Property counter */}
+              <p style={{ textAlign:'center', fontSize:12, color:'#9c9080', marginTop:8, fontFamily:"'DM Sans',sans-serif" }}>
+                {mobileIndex + 1} of {featuredProperties.length}
+              </p>
+            </div>
+            </>
           )}
         </div>
       </section>

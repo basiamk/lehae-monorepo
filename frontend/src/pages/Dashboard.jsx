@@ -108,6 +108,15 @@ const Dashboard = () => {
         .dash-msg-row { padding:14px 0; border-bottom:1px solid #f3ede6; display:flex; gap:14px; align-items:flex-start; }
         .dash-msg-row:last-child { border-bottom:none; }
         .dash-app-row { padding:12px 0; border-bottom:1px solid #f3ede6; display:flex; gap:12px; align-items:center; cursor:pointer; }
+        .dash-stat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:40px; }
+        .dash-action-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+        @media (min-width: 768px) {
+          .dash-stat-grid { grid-template-columns:repeat(3,1fr); }
+          .dash-action-grid { grid-template-columns:repeat(4,1fr); }
+        }
+        @media (min-width: 1024px) {
+          .dash-stat-grid { grid-template-columns:repeat(4,1fr); }
+        }
         .dash-app-row:last-child { border-bottom:none; }
         .dash-app-row:hover { background:rgba(250,247,243,0.6); border-radius:8px; }
       `}</style>
@@ -163,7 +172,7 @@ const Dashboard = () => {
 
         {/* Stat cards */}
         {stats.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-10">
+          <div className="dash-stat-grid">
             {stats.map((stat, i) => (
               <motion.div key={stat.id} className="dash-card p-6"
                 initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ delay:i*0.08 }}>
@@ -178,7 +187,7 @@ const Dashboard = () => {
         {!user?.is_landlord && !user?.is_staff && (
           <div className="mb-10">
             <p className="dash-section-title mb-5">Quick Actions</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="dash-action-grid">
               {[
                 { label:'Browse Properties', icon:Home,     color:'#d4a96a', fn:()=>navigate('/properties') },
                 { label:'My Applications',   icon:FileText, color:'#c4a882', fn:()=>navigate('/my-applications') },
@@ -201,7 +210,7 @@ const Dashboard = () => {
         {user?.is_landlord && (
           <div className="mb-10">
             <p className="dash-section-title mb-5">Quick Actions</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="dash-action-grid">
               {landlordActions.map(({ label, icon: Icon, color, fn }, i) => (
                 <motion.button key={label} className="dash-action-btn" onClick={fn}
                   initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:i*0.07 }}>
