@@ -1,13 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class UserProfile(models.Model):
     user        = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     is_landlord = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
-    # Extended profile fields
     full_name   = models.CharField(max_length=150, blank=True)
     phone       = models.CharField(max_length=30, blank=True)
     bio         = models.TextField(blank=True)
@@ -46,7 +46,6 @@ class Property(models.Model):
         ('none',      _('No electricity')),
     )
 
-    # Core fields
     landlord      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='properties')
     area          = models.CharField(max_length=100)
     district      = models.CharField(max_length=100)
@@ -60,7 +59,6 @@ class Property(models.Model):
     updated_at    = models.DateTimeField(auto_now=True)
     is_approved   = models.BooleanField(default=False)
 
-    # Amenity fields
     property_type   = models.CharField(max_length=20, choices=PROPERTY_TYPE_CHOICES, default='house', blank=True)
     bedrooms        = models.PositiveIntegerField(null=True, blank=True)
     bathrooms       = models.PositiveIntegerField(null=True, blank=True)
@@ -76,6 +74,16 @@ class Property(models.Model):
     class Meta:
         verbose_name = _('Property')
         verbose_name_plural = 'Properties'
+        # FIX: indexes for common filter/sort queries — eliminates full table scans
+        indexes = [
+            models.Index(fields=['landlord'],              name='property_landlord_idx'),
+            models.Index(fields=['district'],              name='property_district_idx'),
+            models.Index(fields=['status'],                name='property_status_idx'),
+            models.Index(fields=['is_approved'],           name='property_approved_idx'),
+            models.Index(fields=['is_approved', 'status'], name='property_approved_status_idx'),
+            models.Index(fields=['-created_at'],           name='property_created_idx'),
+            models.Index(fields=['rental_amount'],         name='property_rent_idx'),
+        ]
 
     def __str__(self):
         return f"{self.area}, {self.district}"
@@ -122,6 +130,9 @@ class FavoriteProperty(models.Model):
         unique_together = ('user', 'property')
         verbose_name = _('Favorite Property')
         verbose_name_plural = _('Favorite Properties')
+        indexes = [
+            models.Index(fields=['user'], name='favorite_user_idx'),
+        ]
 
     def __str__(self):
         return f"{self.user.username} - {self.property.area}"
@@ -149,12 +160,18 @@ class Message(models.Model):
     content    = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     is_read    = models.BooleanField(default=False)
-    is_support = models.BooleanField(default=False)  # landlord ↔ admin support thread
+    is_support = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']
         verbose_name = 'Message'
         verbose_name_plural = 'Messages'
+        # FIX: indexes for message inbox queries
+        indexes = [
+            models.Index(fields=['receiver', 'is_read'], name='message_receiver_read_idx'),
+            models.Index(fields=['sender'],               name='message_sender_idx'),
+            models.Index(fields=['is_support'],           name='message_support_idx'),
+        ]
 
     def __str__(self):
         return f"{self.sender.username} -> {self.receiver.username}: {self.content[:30]}..."
@@ -167,6 +184,14 @@ class ViewingRequest(models.Model):
         ('declined',  _('Declined')),
         ('cancelled', _('Cancelled')),
     )
+
+    # FIX: define valid status transitions — prevents cancelled → approved etc.
+    VALID_TRANSITIONS = {
+        'pending':   {'accepted', 'declined', 'cancelled'},
+        'accepted':  {'cancelled'},
+        'declined':  set(),
+        'cancelled': set(),
+    }
 
     property      = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='viewing_requests')
     tenant        = models.ForeignKey(User, on_delete=models.CASCADE, related_name='viewing_requests_sent')
@@ -182,21 +207,29 @@ class ViewingRequest(models.Model):
         ordering = ['-created_at']
         verbose_name = _('Viewing Request')
         verbose_name_plural = _('Viewing Requests')
+        indexes = [
+            models.Index(fields=['tenant'],   name='viewing_tenant_idx'),
+            models.Index(fields=['property'], name='viewing_property_idx'),
+        ]
+
+    def can_transition_to(self, new_status):
+        return new_status in self.VALID_TRANSITIONS.get(self.status, set())
 
     def __str__(self):
         return f"{self.tenant.username} -> {self.property.area} on {self.proposed_date}"
 
 
 class Review(models.Model):
-    """Tenant reviews a landlord after a viewing or tenancy."""
     property  = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='reviews')
     reviewer  = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_given')
-    rating    = models.PositiveSmallIntegerField()   # 1–5
+    rating    = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
     comment   = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('property', 'reviewer')   # one review per tenant per property
+        unique_together = ('property', 'reviewer')
         ordering = ['-created_at']
         verbose_name = _('Review')
         verbose_name_plural = _('Reviews')
@@ -206,70 +239,82 @@ class Review(models.Model):
 
 
 class RentalApplication(models.Model):
-    """Formal rental application submitted by a tenant for a property."""
     STATUS_CHOICES = (
         ('pending',   _('Pending')),
         ('reviewing', _('Reviewing')),
         ('approved',  _('Approved')),
         ('declined',  _('Declined')),
+        ('cancelled', _('Cancelled')),
     )
     EMPLOYMENT_CHOICES = (
-        ('employed',   _('Employed')),
+        ('employed',      _('Employed')),
         ('self_employed', _('Self-employed')),
-        ('student',    _('Student')),
-        ('unemployed', _('Unemployed')),
-        ('retired',    _('Retired')),
+        ('student',       _('Student')),
+        ('unemployed',    _('Unemployed')),
+        ('retired',       _('Retired')),
     )
 
-    property         = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='applications')
-    applicant        = models.ForeignKey(User, on_delete=models.CASCADE, related_name='applications')
-    full_name        = models.CharField(max_length=150)
-    email            = models.EmailField()
-    phone            = models.CharField(max_length=20)
+    # FIX: define valid status transitions — prevents cancelled → approved
+    VALID_TRANSITIONS = {
+        'pending':   {'reviewing', 'approved', 'declined', 'cancelled'},
+        'reviewing': {'approved', 'declined', 'cancelled'},
+        'approved':  set(),
+        'declined':  set(),
+        'cancelled': set(),
+    }
+
+    property          = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='applications')
+    applicant         = models.ForeignKey(User, on_delete=models.CASCADE, related_name='applications')
+    full_name         = models.CharField(max_length=150)
+    email             = models.EmailField()
+    phone             = models.CharField(max_length=20)
     employment_status = models.CharField(max_length=20, choices=EMPLOYMENT_CHOICES)
-    employer_name    = models.CharField(max_length=150, blank=True)
-    monthly_income   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    num_occupants    = models.PositiveIntegerField(default=1)
-    has_pets         = models.BooleanField(default=False)
-    move_in_date     = models.DateField()
-    references       = models.TextField(blank=True, help_text="Character references or previous landlord contact")
-    additional_notes = models.TextField(blank=True)
-    status           = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    landlord_note    = models.TextField(blank=True)
-    created_at       = models.DateTimeField(auto_now_add=True)
-    updated_at       = models.DateTimeField(auto_now=True)
+    employer_name     = models.CharField(max_length=150, blank=True)
+    monthly_income    = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    num_occupants     = models.PositiveIntegerField(default=1)
+    has_pets          = models.BooleanField(default=False)
+    move_in_date      = models.DateField()
+    references        = models.TextField(blank=True)
+    additional_notes  = models.TextField(blank=True)
+    status            = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    landlord_note     = models.TextField(blank=True)
+    created_at        = models.DateTimeField(auto_now_add=True)
+    updated_at        = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('property', 'applicant')
         ordering = ['-created_at']
         verbose_name = _('Rental Application')
         verbose_name_plural = _('Rental Applications')
+        indexes = [
+            models.Index(fields=['applicant'], name='application_applicant_idx'),
+            models.Index(fields=['status'],    name='application_status_idx'),
+        ]
+
+    def can_transition_to(self, new_status):
+        return new_status in self.VALID_TRANSITIONS.get(self.status, set())
 
     def __str__(self):
         return f"{self.applicant.username} → {self.property.area} ({self.status})"
 
 
 class LandlordVerification(models.Model):
-    """Landlord submits verification documents; admin approves."""
     STATUS_CHOICES = (
         ('pending',  _('Pending Review')),
         ('approved', _('Approved')),
         ('rejected', _('Rejected')),
     )
 
-    landlord         = models.OneToOneField(User, on_delete=models.CASCADE, related_name='verification')
+    landlord           = models.OneToOneField(User, on_delete=models.CASCADE, related_name='verification')
     national_id_number = models.CharField(max_length=50, blank=True)
-    id_document      = models.FileField(upload_to='verification_docs/', null=True, blank=True)
+    id_document        = models.FileField(upload_to='verification_docs/', null=True, blank=True)
     proof_of_ownership = models.FileField(upload_to='verification_docs/', null=True, blank=True)
-    phone_number     = models.CharField(max_length=20, blank=True)
-    status           = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    admin_note       = models.TextField(blank=True)
-    submitted_at     = models.DateTimeField(auto_now_add=True)
-    reviewed_at      = models.DateTimeField(null=True, blank=True)
+    phone_number       = models.CharField(max_length=20, blank=True)
+    status             = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    admin_note         = models.TextField(blank=True)
+    submitted_at       = models.DateTimeField(auto_now_add=True)
+    reviewed_at        = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = _('Landlord Verification')
         verbose_name_plural = _('Landlord Verifications')
-
-    def __str__(self):
-        return f"{self.landlord.username} — {self.status}"

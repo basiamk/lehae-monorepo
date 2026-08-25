@@ -1,13 +1,22 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from .models import Property, FavoriteProperty, ContactMessage, UserProfile, PropertyImage, Message, ViewingRequest, Review, RentalApplication, LandlordVerification
+from .models import (
+    Property, FavoriteProperty, ContactMessage, UserProfile,
+    PropertyImage, Message, ViewingRequest, Review,
+    RentalApplication, LandlordVerification,
+)
+import imghdr
 
 
+# ── FIX: UserProfileSerializer — is_landlord and is_verified are read-only
+# Prevents tenants from self-escalating via PATCH /api/profile/
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model  = UserProfile
         fields = ['is_landlord', 'is_verified', 'full_name', 'phone', 'bio']
+        # SECURITY FIX: these fields can never be set via API — only by admin actions
+        read_only_fields = ['is_landlord', 'is_verified']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -40,6 +49,8 @@ class UserSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
         if profile_data:
+            # FIX: only pass writable fields — is_landlord and is_verified are excluded
+            # by UserProfileSerializer.read_only_fields so they won't appear here
             ps = UserProfileSerializer(instance.profile, data=profile_data, partial=True)
             if ps.is_valid():
                 ps.save()
@@ -59,29 +70,6 @@ class PropertyImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image', 'image_url', 'uploaded_at']
         read_only_fields = ['id', 'uploaded_at', 'image_url']
 
-    def get_landlord_is_verified(self, obj):
-        profile = getattr(obj.landlord, 'profile', None)
-        return profile.is_verified if profile else False
-
-    def get_landlord_response_rate(self, obj):
-        from django.db.models import Count, Q
-        from .models import Message
-        # Messages received by this landlord about their properties
-        total = Message.objects.filter(receiver=obj.landlord, is_support=False).count()
-        if total == 0:
-            return None  # not enough data
-        replied = Message.objects.filter(
-            sender=obj.landlord, is_support=False
-        ).values('receiver').distinct().count()
-        # Simple: % of unique senders the landlord has replied to
-        unique_senders = Message.objects.filter(
-            receiver=obj.landlord, is_support=False
-        ).values('sender').distinct().count()
-        if unique_senders == 0:
-            return None
-        rate = min(100, round((replied / unique_senders) * 100))
-        return rate
-
     def get_image_url(self, obj):
         request = self.context.get('request')
         if obj.image and request:
@@ -89,21 +77,39 @@ class PropertyImageSerializer(serializers.ModelSerializer):
         return None
 
     def validate_image(self, value):
-        if value.content_type not in ['image/jpeg', 'image/png']:
-            raise serializers.ValidationError("Only JPEG and PNG images are supported.")
-        if value.size > 5 * 1024 * 1024:
-            raise serializers.ValidationError("Image size must be less than 5MB.")
+        # FIX: check actual file bytes — not just the Content-Type header
+        # which can be spoofed by an attacker
+        ALLOWED_CONTENT_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
+        ALLOWED_MAGIC_TYPES   = {'jpeg', 'png', 'webp'}
+        MAX_SIZE_BYTES        = 5 * 1024 * 1024  # 5 MB
+
+        if value.content_type not in ALLOWED_CONTENT_TYPES:
+            raise serializers.ValidationError("Only JPEG, PNG, and WebP images are supported.")
+
+        if value.size > MAX_SIZE_BYTES:
+            raise serializers.ValidationError("Image size must be less than 5 MB.")
+
+        # Read magic bytes to verify actual file type
+        header = value.read(512)
+        value.seek(0)  # reset for Django to save the file
+        detected = imghdr.what(None, h=header)
+        if detected not in ALLOWED_MAGIC_TYPES:
+            raise serializers.ValidationError(
+                "File content does not match a valid image format. "
+                "Rename tricks and spoofed content-types are not accepted."
+            )
+
         return value
 
 
 class PropertySerializer(serializers.ModelSerializer):
-    image_url          = serializers.SerializerMethodField()
-    is_favorited       = serializers.SerializerMethodField()
-    landlord_username    = serializers.CharField(source='landlord.username', read_only=True)
+    image_url              = serializers.SerializerMethodField()
+    is_favorited           = serializers.SerializerMethodField()
+    landlord_username      = serializers.CharField(source='landlord.username', read_only=True)
     landlord_is_verified   = serializers.SerializerMethodField()
     landlord_response_rate = serializers.SerializerMethodField()
-    images             = PropertyImageSerializer(many=True, read_only=True)
-    completeness_score = serializers.IntegerField(read_only=True)
+    images                 = PropertyImageSerializer(many=True, read_only=True)
+    completeness_score     = serializers.IntegerField(read_only=True)
 
     class Meta:
         model  = Property
@@ -125,27 +131,21 @@ class PropertySerializer(serializers.ModelSerializer):
         read_only_fields = ['landlord', 'image_url', 'images', 'completeness_score']
 
     def get_landlord_is_verified(self, obj):
+        # FIX: use select_related cache — no extra query when queryset is optimised
         profile = getattr(obj.landlord, 'profile', None)
         return profile.is_verified if profile else False
 
     def get_landlord_response_rate(self, obj):
-        from django.db.models import Count, Q
         from .models import Message
-        # Messages received by this landlord about their properties
-        total = Message.objects.filter(receiver=obj.landlord, is_support=False).count()
-        if total == 0:
-            return None  # not enough data
-        replied = Message.objects.filter(
-            sender=obj.landlord, is_support=False
-        ).values('receiver').distinct().count()
-        # Simple: % of unique senders the landlord has replied to
         unique_senders = Message.objects.filter(
             receiver=obj.landlord, is_support=False
         ).values('sender').distinct().count()
         if unique_senders == 0:
             return None
-        rate = min(100, round((replied / unique_senders) * 100))
-        return rate
+        replied = Message.objects.filter(
+            sender=obj.landlord, is_support=False
+        ).values('receiver').distinct().count()
+        return min(100, round((replied / unique_senders) * 100))
 
     def get_image_url(self, obj):
         request = self.context.get('request')
@@ -208,9 +208,9 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class ViewingRequestSerializer(serializers.ModelSerializer):
-    tenant_username  = serializers.CharField(source='tenant.username',             read_only=True)
-    property_title   = serializers.SerializerMethodField()
-    landlord_id      = serializers.IntegerField(source='property.landlord.id',     read_only=True)
+    tenant_username = serializers.CharField(source='tenant.username',         read_only=True)
+    property_title  = serializers.SerializerMethodField()
+    landlord_id     = serializers.IntegerField(source='property.landlord.id', read_only=True)
 
     class Meta:
         model  = ViewingRequest
@@ -264,8 +264,8 @@ class RentalApplicationSerializer(serializers.ModelSerializer):
 
 
 class LandlordVerificationSerializer(serializers.ModelSerializer):
-    landlord_username    = serializers.CharField(source='landlord.username', read_only=True)
-    id_document_url      = serializers.SerializerMethodField()
+    landlord_username      = serializers.CharField(source='landlord.username', read_only=True)
+    id_document_url        = serializers.SerializerMethodField()
     proof_of_ownership_url = serializers.SerializerMethodField()
 
     class Meta:

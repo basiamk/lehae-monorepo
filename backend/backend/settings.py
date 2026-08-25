@@ -1,5 +1,5 @@
 """
-Django settings for backend project.
+Django settings for backend project — production-hardened.
 """
 
 from pathlib import Path
@@ -16,7 +16,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY',
     config('SECRET_KEY', default='django-insecure-0b1e2f3g4h5i6j7k8l9m0n1o2p3q4r5s6t7u8v9w0x1y2z3'))
 
-DEBUG = os.environ.get('PRODUCTION', '') not in ('1', 'true', 'yes')
+# FIX: DEBUG defaults to False — fail closed, not open
+DEBUG = os.environ.get('PRODUCTION', '') not in ('1', 'true', 'yes') and \
+        config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -69,7 +71,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-# Database — uses DATABASE_URL in production (Railway), sqlite locally
+# ── Database ───────────────────────────────────────────────────────────────────
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 if DATABASE_URL:
     DATABASES = {
@@ -91,17 +93,20 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
+TIME_ZONE     = 'UTC'
+USE_I18N      = True
+USE_TZ        = True
 
-STATIC_URL = '/static/'
+STATIC_URL  = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL   = '/media/'
+MEDIA_ROOT  = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ── DRF ────────────────────────────────────────────────────────────────────────
+PRODUCTION = os.environ.get('PRODUCTION', '') in ('1', 'true', 'yes')
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -110,16 +115,43 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ),
+    # FIX: pagination — prevents full table dumps on list endpoints
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    # FIX: global throttling — all endpoints get a baseline rate limit
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon':           '200/day',
+        'user':           '2000/day',
+        # FIX: per-endpoint throttles defined in views.py
+        'login':          '5/min',
+        'contact':        '10/hour',
+        'password_reset': '3/hour',
+    },
 }
 
+# ── JWT ────────────────────────────────────────────────────────────────────────
+# FIX: reduce access token lifetime — stolen tokens expire sooner
+# FIX: enable refresh token rotation — old refresh tokens are invalidated on use
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME':            timedelta(minutes=60),   # was 7 days
+    'REFRESH_TOKEN_LIFETIME':           timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS':            True,    # FIX: new refresh issued on each use
+    'BLACKLIST_AFTER_ROTATION':         True,    # FIX: old refresh cannot be reused
+    'UPDATE_LAST_LOGIN':                True,
+    'ALGORITHM':                        'HS256',
+    'AUTH_HEADER_TYPES':                ('Bearer',),
 }
 
-# CORS — allow all in dev, restrict to Vercel in production
-PRODUCTION = os.environ.get('PRODUCTION', '') in ('1', 'true', 'yes')
+# Add rest_framework_simplejwt.token_blacklist to INSTALLED_APPS for blacklisting
+if 'rest_framework_simplejwt.token_blacklist' not in INSTALLED_APPS:
+    INSTALLED_APPS.append('rest_framework_simplejwt.token_blacklist')
 
+# ── CORS ───────────────────────────────────────────────────────────────────────
+# FIX: CORS_ALLOW_ALL_ORIGINS is never True in production
 if PRODUCTION:
     CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOWED_ORIGINS = [
@@ -134,38 +166,32 @@ else:
     CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_METHODS = ['DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT']
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
+CORS_ALLOW_METHODS     = ['DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT']
+CORS_ALLOW_HEADERS     = [
+    'accept', 'accept-encoding', 'authorization', 'content-type',
+    'dnt', 'origin', 'user-agent', 'x-csrftoken', 'x-requested-with',
 ]
 CORS_URLS_REGEX = r'^.*$'
 
-# Email
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER     = os.environ.get('EMAIL_HOST_USER', config('EMAIL_HOST_USER', default=''))
+# ── Email ──────────────────────────────────────────────────────────────────────
+EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST          = 'smtp.gmail.com'
+EMAIL_PORT          = 587
+EMAIL_USE_TLS       = True
+EMAIL_HOST_USER     = os.environ.get('EMAIL_HOST_USER',     config('EMAIL_HOST_USER',     default=''))
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', config('EMAIL_HOST_PASSWORD', default=''))
 DEFAULT_FROM_EMAIL  = EMAIL_HOST_USER
+ADMIN_EMAIL         = EMAIL_HOST_USER
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
-# Authentication
+# ── Auth backends ──────────────────────────────────────────────────────────────
 AUTHENTICATION_BACKENDS = [
     'api.auth.EmailBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-# Logging
+# ── Logging ────────────────────────────────────────────────────────────────────
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, 'django.log')
@@ -175,48 +201,58 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} [{asctime}] {module} {message}',
+            'format': '{levelname} [{asctime}] {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
             'style': '{',
         },
     },
     'handlers': {
         'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': LOG_FILE,
+            'level':     'WARNING',   # only warnings+ in prod file
+            'class':     'logging.FileHandler',
+            'filename':  LOG_FILE,
             'formatter': 'verbose',
         },
         'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
+            'level':     'DEBUG',
+            'class':     'logging.StreamHandler',
             'formatter': 'verbose',
         },
     },
     'loggers': {
         'django': {
-            'handlers': ['file', 'console'],
-            'level': 'INFO',
+            'handlers':  ['file', 'console'],
+            'level':     'INFO',
             'propagate': True,
         },
         'api': {
-            'handlers': ['file', 'console'],
-            'level': 'DEBUG',
+            'handlers':  ['file', 'console'],
+            'level':     'DEBUG',
             'propagate': False,
         },
     },
 }
 
-# Security
+# ── Security headers ───────────────────────────────────────────────────────────
 if PRODUCTION:
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT      = False  # Railway handles SSL termination
-    SESSION_COOKIE_SECURE    = True
-    CSRF_COOKIE_SECURE       = True
-    SECURE_HSTS_SECONDS      = 31536000
+    SECURE_PROXY_SSL_HEADER        = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT            = False   # Railway terminates SSL
+    SESSION_COOKIE_SECURE          = True
+    CSRF_COOKIE_SECURE             = True
+    SECURE_HSTS_SECONDS            = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD      = True
+    SECURE_HSTS_PRELOAD            = True
+    # FIX: prevent browsers from sniffing content types
+    SECURE_CONTENT_TYPE_NOSNIFF    = True
+    # FIX: deny clickjacking
+    X_FRAME_OPTIONS                = 'DENY'
 else:
-    SECURE_SSL_REDIRECT      = False
-    SESSION_COOKIE_SECURE    = False
-    CSRF_COOKIE_SECURE       = False
-    SECURE_HSTS_SECONDS      = 0
+    SECURE_SSL_REDIRECT            = False
+    SESSION_COOKIE_SECURE          = False
+    CSRF_COOKIE_SECURE             = False
+    SECURE_HSTS_SECONDS            = 0
+    SECURE_CONTENT_TYPE_NOSNIFF    = True
+    X_FRAME_OPTIONS                = 'DENY'
