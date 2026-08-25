@@ -6,7 +6,6 @@ from .models import (
     PropertyImage, Message, ViewingRequest, Review,
     RentalApplication, LandlordVerification,
 )
-import imghdr
 
 
 # ── FIX: UserProfileSerializer — is_landlord and is_verified are read-only
@@ -77,10 +76,7 @@ class PropertyImageSerializer(serializers.ModelSerializer):
         return None
 
     def validate_image(self, value):
-        # FIX: check actual file bytes — not just the Content-Type header
-        # which can be spoofed by an attacker
         ALLOWED_CONTENT_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
-        ALLOWED_MAGIC_TYPES   = {'jpeg', 'png', 'webp'}
         MAX_SIZE_BYTES        = 5 * 1024 * 1024  # 5 MB
 
         if value.content_type not in ALLOWED_CONTENT_TYPES:
@@ -89,11 +85,15 @@ class PropertyImageSerializer(serializers.ModelSerializer):
         if value.size > MAX_SIZE_BYTES:
             raise serializers.ValidationError("Image size must be less than 5 MB.")
 
-        # Read magic bytes to verify actual file type
-        header = value.read(512)
+        # Check magic bytes manually — imghdr was removed from the stdlib in Python 3.13
+        header = value.read(12)
         value.seek(0)  # reset for Django to save the file
-        detected = imghdr.what(None, h=header)
-        if detected not in ALLOWED_MAGIC_TYPES:
+
+        is_jpeg = header[:3] == b'\xff\xd8\xff'
+        is_png  = header[:8] == b'\x89PNG\r\n\x1a\n'
+        is_webp = header[:4] == b'RIFF' and header[8:12] == b'WEBP'
+
+        if not (is_jpeg or is_png or is_webp):
             raise serializers.ValidationError(
                 "File content does not match a valid image format. "
                 "Rename tricks and spoofed content-types are not accepted."
