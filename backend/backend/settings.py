@@ -25,6 +25,7 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '0.0.0.0',
     'lehae-monorepo-production.up.railway.app',
+    'lehae-monorepo.onrender.com',
 ]
 
 INSTALLED_APPS = [
@@ -159,6 +160,7 @@ if PRODUCTION:
         'https://lehae-monorepo-git-main-basiamks-projects.vercel.app',
         'https://lehae-monorepo-9asvcznc6-basiamks-projects.vercel.app',
     ]
+    
     CORS_ALLOWED_ORIGIN_REGEXES = [
         r'^https://lehae-monorepo-.*\.vercel\.app$',
     ]
