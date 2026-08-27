@@ -8,6 +8,11 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import axiosInstance from '../../utils/axios';
 import { Menu, X, ChevronRight } from 'lucide-react';
 
+// Handles both paginated {count,results:[]} and plain array responses
+const extractList = (data) =>
+  Array.isArray(data) ? data :
+  (data && Array.isArray(data.results)) ? data.results : [];
+
 const Navbar = () => {
   const { t } = useLanguage();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -26,7 +31,8 @@ const Navbar = () => {
     if (!isAuthenticated) { setUnreadCount(0); return; }
     try {
       const response = await axiosInstance.get('/api/messages/');
-      const unread = response.data.filter(
+      const messagesList = extractList(response.data);
+      const unread = messagesList.filter(
         msg => !msg.is_read && msg.receiver_username?.toLowerCase() === user?.username?.toLowerCase()
       ).length;
       setUnreadCount(unread);
@@ -89,7 +95,6 @@ const Navbar = () => {
           gap: 12px;
         }
 
-        /* Brand */
         .nav-brand {
           font-family: 'Playfair Display', serif;
           font-size: 20px; font-weight: 700;
@@ -103,7 +108,6 @@ const Navbar = () => {
           background: #d4a96a; flex-shrink: 0;
         }
 
-        /* Desktop links — hidden on mobile */
         .nav-links-desktop {
           display: none;
           align-items: center; gap: 2px;
@@ -131,13 +135,11 @@ const Navbar = () => {
           min-width: 16px; text-align: center; line-height: 15px;
         }
 
-        /* Right side of navbar */
         .nav-right {
           display: flex; align-items: center; gap: 8px;
           flex-shrink: 0;
         }
 
-        /* Desktop auth — hidden on mobile */
         .nav-auth-desktop { display: none; align-items: center; gap: 8px; }
         .nav-avatar {
           width: 34px; height: 34px; border-radius: 50%;
@@ -157,7 +159,6 @@ const Navbar = () => {
         }
         .nav-logout:hover { color: #1c1a17; background: rgba(28,26,23,0.05); }
 
-        /* Hamburger — always visible */
         .nav-hamburger {
           width: 38px; height: 38px; border-radius: 10px;
           background: none; border: 1px solid #ede8e0;
@@ -168,7 +169,6 @@ const Navbar = () => {
         }
         .nav-hamburger:hover { background: #f5f0e8; }
 
-        /* Mobile drawer */
         .mobile-drawer { position: fixed; inset: 0; z-index: 200; }
         .mobile-backdrop {
           position: absolute; inset: 0;
@@ -228,7 +228,6 @@ const Navbar = () => {
           margin-top: auto;
         }
 
-        /* Desktop breakpoint */
         @media (min-width: 768px) {
           .nav-links-desktop { display: flex; }
           .nav-auth-desktop  { display: flex; }
@@ -242,14 +241,12 @@ const Navbar = () => {
       <nav className={`lehae-nav ${scrolled ? 'scrolled' : 'top'}`}>
         <div className="nav-inner">
 
-          {/* Brand */}
           <Link to="/" className="nav-brand" onClick={close}>
             <img src="/logo.png" alt="Lehae" onError={e => { e.target.style.display='none'; }} />
             <span>Lehae</span>
             <span className="nav-brand-dot" />
           </Link>
 
-          {/* Desktop centre links */}
           <div className="nav-links-desktop">
             {navLinks.map(link => (
               <Link key={link.path} to={link.path} className={`nav-link ${isActive(link.path) ? 'active' : ''}`}>
@@ -260,12 +257,9 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* Right side */}
           <div className="nav-right">
-            {/* Language switcher — always visible */}
             <LanguageSwitcher />
 
-            {/* Desktop auth */}
             <div className="nav-auth-desktop">
               {isAuthenticated ? (
                 <>
@@ -282,7 +276,6 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* Hamburger — mobile only */}
             <button className="nav-hamburger" onClick={() => setIsMobileMenuOpen(true)} aria-label="Open menu">
               <Menu size={18} />
             </button>
@@ -290,7 +283,6 @@ const Navbar = () => {
         </div>
       </nav>
 
-      {/* Mobile drawer */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <div className="mobile-drawer">
@@ -304,7 +296,6 @@ const Navbar = () => {
               initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}
             >
-              {/* Header */}
               <div className="mobile-header">
                 <span style={{ fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:700, color:'#1c1a17' }}>
                   Menu
@@ -315,7 +306,6 @@ const Navbar = () => {
                 </button>
               </div>
 
-              {/* Nav links */}
               <div style={{ paddingTop: 8 }}>
                 <p className="mobile-section-label">Navigate</p>
                 {navLinks.map(link => (
@@ -331,7 +321,6 @@ const Navbar = () => {
                 ))}
               </div>
 
-              {/* Auth section */}
               <div style={{ paddingTop: 8 }}>
                 {isAuthenticated ? (
                   <>
@@ -362,7 +351,6 @@ const Navbar = () => {
                 )}
               </div>
 
-              {/* Language at bottom */}
               <div className="mobile-lang-row">
                 <p className="mobile-section-label" style={{ padding:0, marginBottom:10 }}>Language</p>
                 <LanguageSwitcher />
