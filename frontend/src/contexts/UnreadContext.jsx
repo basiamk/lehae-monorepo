@@ -4,6 +4,11 @@ import { useAuth } from './AuthContext';
 
 const UnreadContext = createContext();
 
+// Handles both paginated {count,results:[]} and plain array responses
+const extractList = (data) =>
+  Array.isArray(data) ? data :
+  (data && Array.isArray(data.results)) ? data.results : [];
+
 export const UnreadProvider = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -13,10 +18,11 @@ export const UnreadProvider = ({ children }) => {
       setUnreadCount(0);
       return;
     }
-
     try {
       const response = await axiosInstance.get('/api/messages/');
-      const unread = response.data.filter(
+      // FIX: messages endpoint is paginated — extract results before filtering
+      const messagesList = extractList(response.data);
+      const unread = messagesList.filter(
         msg => !msg.is_read && msg.receiver_username === user?.username
       ).length;
       setUnreadCount(unread);
@@ -28,9 +34,7 @@ export const UnreadProvider = ({ children }) => {
 
   useEffect(() => {
     refreshUnread();
-
     const interval = setInterval(refreshUnread, 30000); // Backup refresh
-
     return () => clearInterval(interval);
   }, [isAuthenticated, user]);
 

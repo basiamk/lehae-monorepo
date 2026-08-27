@@ -8,7 +8,7 @@ from .models import (
 )
 
 
-# ── Used for reads and for editing an existing profile.
+# Used for reads and for editing an existing profile via PATCH/PUT.
 # is_landlord / is_verified stay read-only here — this is what prevents a
 # tenant from PATCHing their own profile to become a landlord or get verified.
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -16,16 +16,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model  = UserProfile
         fields = ['is_landlord', 'is_verified', 'full_name', 'phone', 'bio']
         read_only_fields = ['is_landlord', 'is_verified']
-
-
-# ── FIX: used ONLY at registration time, inside UserSerializer.create().
-# Allows is_landlord to be set once at signup (that's a legitimate choice
-# the user makes on the registration form). is_verified is still excluded
-# entirely — verification always requires admin approval, even at signup.
-class RegistrationProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model  = UserProfile
-        fields = ['is_landlord', 'full_name', 'phone', 'bio']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -41,20 +31,25 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        profile_data = validated_data.pop('profile')
+        # FIX: UserProfileSerializer marks is_landlord as read_only (to stop
+        # PATCH-based self-escalation on profile edits). But because 'profile'
+        # is a nested UserProfileSerializer field, DRF runs that same
+        # read-only stripping during input validation for registration too —
+        # so by the time validated_data reaches here, is_landlord is already
+        # gone. Read it from the raw request payload instead. This path only
+        # ever runs at signup, never at profile edit, so it can't be used to
+        # self-escalate an existing account.
+        raw_profile = self.initial_data.get('profile', {})
+        is_landlord_at_signup = bool(raw_profile.get('is_landlord', False))
+
+        validated_data.pop('profile', None)
         try:
             user = User.objects.create_user(
                 username=validated_data['username'],
                 email=validated_data['email'],
                 password=validated_data['password'],
             )
-            # FIX: use RegistrationProfileSerializer here so is_landlord from
-            # the signup form is actually honoured instead of silently dropped
-            reg_serializer = RegistrationProfileSerializer(data=profile_data)
-            if reg_serializer.is_valid():
-                UserProfile.objects.create(user=user, **reg_serializer.validated_data)
-            else:
-                UserProfile.objects.create(user=user)
+            UserProfile.objects.create(user=user, is_landlord=is_landlord_at_signup)
             return user
         except ValidationError as e:
             raise serializers.ValidationError({"password": str(e)})
@@ -64,8 +59,6 @@ class UserSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
         if profile_data:
-            # Editing uses the locked-down serializer — is_landlord/is_verified
-            # can never be changed this way, only full_name/phone/bio
             ps = UserProfileSerializer(instance.profile, data=profile_data, partial=True)
             if ps.is_valid():
                 ps.save()
@@ -101,7 +94,6 @@ class PropertyImageSerializer(serializers.ModelSerializer):
         if value.size > MAX_SIZE_BYTES:
             raise serializers.ValidationError("Image size must be less than 5 MB.")
 
-        # Check magic bytes manually — imghdr was removed from the stdlib in Python 3.13
         header = value.read(12)
         value.seek(0)
 
@@ -119,13 +111,13 @@ class PropertyImageSerializer(serializers.ModelSerializer):
 
 
 class PropertySerializer(serializers.ModelSerializer):
-    image_url              = serializers.SerializerMethodField()
-    is_favorited            = serializers.SerializerMethodField()
-    landlord_username       = serializers.CharField(source='landlord.username', read_only=True)
-    landlord_is_verified    = serializers.SerializerMethodField()
-    landlord_response_rate  = serializers.SerializerMethodField()
-    images                  = PropertyImageSerializer(many=True, read_only=True)
-    completeness_score      = serializers.IntegerField(read_only=True)
+    image_url               = serializers.SerializerMethodField()
+    is_favorited             = serializers.SerializerMethodField()
+    landlord_username        = serializers.CharField(source='landlord.username', read_only=True)
+    landlord_is_verified     = serializers.SerializerMethodField()
+    landlord_response_rate   = serializers.SerializerMethodField()
+    images                   = PropertyImageSerializer(many=True, read_only=True)
+    completeness_score       = serializers.IntegerField(read_only=True)
 
     class Meta:
         model  = Property
@@ -205,9 +197,9 @@ class ContactMessageSerializer(serializers.ModelSerializer):
 
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender_username   = serializers.CharField(source='sender.username',   read_only=True)
-    receiver_username = serializers.CharField(source='receiver.username', read_only=True)
-    property_title     = serializers.CharField(source='property.area',    read_only=True, allow_null=True)
+    sender_username    = serializers.CharField(source='sender.username',   read_only=True)
+    receiver_username  = serializers.CharField(source='receiver.username', read_only=True)
+    property_title      = serializers.CharField(source='property.area',    read_only=True, allow_null=True)
 
     class Meta:
         model  = Message
@@ -257,7 +249,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 class RentalApplicationSerializer(serializers.ModelSerializer):
     applicant_username = serializers.CharField(source='applicant.username', read_only=True)
-    property_title      = serializers.SerializerMethodField()
+    property_title       = serializers.SerializerMethodField()
 
     class Meta:
         model  = RentalApplication
@@ -277,9 +269,9 @@ class RentalApplicationSerializer(serializers.ModelSerializer):
 
 
 class LandlordVerificationSerializer(serializers.ModelSerializer):
-    landlord_username      = serializers.CharField(source='landlord.username', read_only=True)
-    id_document_url         = serializers.SerializerMethodField()
-    proof_of_ownership_url  = serializers.SerializerMethodField()
+    landlord_username       = serializers.CharField(source='landlord.username', read_only=True)
+    id_document_url          = serializers.SerializerMethodField()
+    proof_of_ownership_url   = serializers.SerializerMethodField()
 
     class Meta:
         model  = LandlordVerification
