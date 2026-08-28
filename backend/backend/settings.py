@@ -100,7 +100,6 @@ USE_TZ        = True
 
 STATIC_URL  = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # ── Media storage ────────────────────────────────────────────────────────────
 # Default: local disk (used automatically if R2 env vars aren't set — keeps
@@ -169,17 +168,22 @@ if USE_R2_STORAGE:
     AWS_S3_SIGNATURE_VERSION = 's3v4'
     AWS_S3_ADDRESSING_STYLE  = 'virtual'
 
-    STORAGES = {
-        'default': {
-            'BACKEND': 'storages.backends.s3.S3Storage',
-        },
-        'staticfiles': {
-            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
-        },
-    }
-
     if AWS_S3_CUSTOM_DOMAIN:
         MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+
+# FIX: STORAGES dict defined exactly once, at module level — Django 4.2+
+# forbids mixing the old STATICFILES_STORAGE setting with the new STORAGES
+# dict, even conditionally. 'default' (media) switches on R2 availability;
+# 'staticfiles' is always whitenoise regardless of R2 status.
+STORAGES = {
+    'default': {
+        'BACKEND': 'storages.backends.s3.S3Storage' if USE_R2_STORAGE
+                    else 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
 if PRODUCTION:
