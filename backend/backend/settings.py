@@ -101,8 +101,10 @@ USE_TZ        = True
 STATIC_URL  = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-MEDIA_URL   = '/media/'
-MEDIA_ROOT  = BASE_DIR / 'media'
+
+# ── Media storage ────────────────────────────────────────────────────────────
+# Default: local disk (used automatically if R2 env vars aren't set — keeps
+# local dev / `python manage.py runserver` working without R2 configured)
 MEDIA_URL   = '/media/'
 MEDIA_ROOT  = BASE_DIR / 'media'
 
@@ -118,10 +120,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ),
-    # FIX: pagination — prevents full table dumps on list endpoints
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    # FIX: global throttling — all endpoints get a baseline rate limit
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
@@ -129,7 +129,6 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon':           '200/day',
         'user':           '2000/day',
-        # FIX: per-endpoint throttles defined in views.py
         'login':          '5/min',
         'contact':        '10/hour',
         'password_reset': '3/hour',
@@ -137,24 +136,52 @@ REST_FRAMEWORK = {
 }
 
 # ── JWT ────────────────────────────────────────────────────────────────────────
-# FIX: reduce access token lifetime — stolen tokens expire sooner
-# FIX: enable refresh token rotation — old refresh tokens are invalidated on use
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME':            timedelta(minutes=60),   # was 7 days
+    'ACCESS_TOKEN_LIFETIME':            timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME':           timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS':            True,    # FIX: new refresh issued on each use
-    'BLACKLIST_AFTER_ROTATION':         True,    # FIX: old refresh cannot be reused
+    'ROTATE_REFRESH_TOKENS':            True,
+    'BLACKLIST_AFTER_ROTATION':         True,
     'UPDATE_LAST_LOGIN':                True,
     'ALGORITHM':                        'HS256',
     'AUTH_HEADER_TYPES':                ('Bearer',),
 }
 
-# Add rest_framework_simplejwt.token_blacklist to INSTALLED_APPS for blacklisting
 if 'rest_framework_simplejwt.token_blacklist' not in INSTALLED_APPS:
     INSTALLED_APPS.append('rest_framework_simplejwt.token_blacklist')
 
+# ── Cloudflare R2 media storage ────────────────────────────────────────────────
+# FIX: this block was missing entirely in the previous deploy — packages were
+# installed but Django was never told to use them. Activates automatically
+# when R2_ACCESS_KEY_ID is present in the environment; falls back to the local
+# MEDIA_ROOT/MEDIA_URL above otherwise.
+USE_R2_STORAGE = bool(os.environ.get('R2_ACCESS_KEY_ID'))
+
+if USE_R2_STORAGE:
+    INSTALLED_APPS.append('storages')
+
+    AWS_ACCESS_KEY_ID       = os.environ.get('R2_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY   = os.environ.get('R2_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('R2_BUCKET_NAME', 'lehae-media')
+    AWS_S3_ENDPOINT_URL     = os.environ.get('R2_ENDPOINT_URL')
+    AWS_S3_CUSTOM_DOMAIN    = os.environ.get('R2_PUBLIC_URL', '').replace('https://', '').replace('http://', '')
+    AWS_DEFAULT_ACL         = None
+    AWS_S3_FILE_OVERWRITE   = False
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_ADDRESSING_STYLE  = 'virtual'
+
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3.S3Storage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+
 # ── CORS ───────────────────────────────────────────────────────────────────────
-# FIX: CORS_ALLOW_ALL_ORIGINS is never True in production
 if PRODUCTION:
     CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOWED_ORIGINS = [
@@ -162,7 +189,6 @@ if PRODUCTION:
         'https://lehae-monorepo-git-main-basiamks-projects.vercel.app',
         'https://lehae-monorepo-9asvcznc6-basiamks-projects.vercel.app',
     ]
-    
     CORS_ALLOWED_ORIGIN_REGEXES = [
         r'^https://lehae-monorepo-.*\.vercel\.app$',
     ]
@@ -215,7 +241,7 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'level':     'WARNING',   # only warnings+ in prod file
+            'level':     'WARNING',
             'class':     'logging.FileHandler',
             'filename':  LOG_FILE,
             'formatter': 'verbose',
@@ -243,15 +269,13 @@ LOGGING = {
 # ── Security headers ───────────────────────────────────────────────────────────
 if PRODUCTION:
     SECURE_PROXY_SSL_HEADER        = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT            = False   # Railway terminates SSL
+    SECURE_SSL_REDIRECT            = False
     SESSION_COOKIE_SECURE          = True
     CSRF_COOKIE_SECURE             = True
     SECURE_HSTS_SECONDS            = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD            = True
-    # FIX: prevent browsers from sniffing content types
     SECURE_CONTENT_TYPE_NOSNIFF    = True
-    # FIX: deny clickjacking
     X_FRAME_OPTIONS                = 'DENY'
 else:
     SECURE_SSL_REDIRECT            = False
