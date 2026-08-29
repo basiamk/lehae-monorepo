@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Heart, MapPin, ArrowUpRight, BedDouble, Bath, ShieldCheck } from 'lucide-react';
+import { Heart, MapPin, ArrowUpRight, BedDouble, Bath, ShieldCheck, LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 
 const WHATSAPP_GREEN = '#25D366';
 
@@ -20,8 +21,10 @@ const typeLabel = {
 const PropertyCard = ({ property, onFavoriteToggle }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [imgIndex, setImgIndex]         = useState(0);
-  const [favoriteAnim, setFavoriteAnim] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const [imgIndex, setImgIndex]           = useState(0);
+  const [favoriteAnim, setFavoriteAnim]   = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const {
     id, area, district, rental_amount, is_favorited,
@@ -38,12 +41,30 @@ const PropertyCard = ({ property, onFavoriteToggle }) => {
   const statusInfo   = statusConfig[status] || statusConfig.vacant;
 
   const handleClick         = () => id && navigate(`/properties/${id}`);
+
   const handleFavoriteClick = (e) => {
     e.stopPropagation();
+
+    // FIX: guests clicking the heart previously triggered a silent 401
+    // that surfaced only as a generic "Failed to update favorite" error.
+    // Now we check auth first and show a friendly inline prompt instead.
+    if (!isAuthenticated) {
+      setShowLoginPrompt(true);
+      setTimeout(() => setShowLoginPrompt(false), 3000);
+      return;
+    }
+
     setFavoriteAnim(true);
     setTimeout(() => setFavoriteAnim(false), 600);
     if (id) onFavoriteToggle(id, is_favorited);
   };
+
+  const goToLogin = (e) => {
+    e.stopPropagation();
+    // Carry the current page so Login can send them back after signing in
+    navigate('/login', { state: { from: window.location.pathname } });
+  };
+
   const handleWhatsApp = (e) => {
     e.stopPropagation();
     const num  = whatsapp_number.replace(/\D/g, '');
@@ -88,6 +109,19 @@ const PropertyCard = ({ property, onFavoriteToggle }) => {
         .lehae-cta { display:flex; align-items:center; gap:5px; background:#1c1a17; color:#fff; border:none; border-radius:100px; padding:7px 13px; font-size:12px; font-weight:500; font-family:'DM Sans',sans-serif; cursor:pointer; transition:background 0.2s,transform 0.15s; flex-shrink:0; }
         .lehae-cta:hover { background:#3a3020; transform:scale(1.03); }
         .lehae-wa { display:flex; align-items:center; gap:4px; border:none; border-radius:100px; padding:7px 11px; font-size:12px; font-weight:500; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all 0.15s; flex-shrink:0; }
+        .lehae-login-prompt {
+          position:absolute; top:54px; right:12px; z-index:20;
+          background:#1c1a17; color:#fff; border-radius:12px;
+          padding:10px 14px; font-size:12px; font-weight:500;
+          box-shadow:0 8px 24px rgba(0,0,0,0.25);
+          display:flex; align-items:center; gap:8px; white-space:nowrap;
+        }
+        .lehae-login-prompt-btn {
+          display:flex; align-items:center; gap:4px;
+          background:#d4a96a; color:#1c1a17; border:none; border-radius:100px;
+          padding:4px 10px; font-size:11px; font-weight:600; cursor:pointer;
+          font-family:'DM Sans',sans-serif;
+        }
       `}</style>
 
       <motion.div className={`lehae-card${!is_approved ? ' unapproved' : ''}`} onClick={handleClick} layout>
@@ -116,6 +150,23 @@ const PropertyCard = ({ property, onFavoriteToggle }) => {
           <button className={`lehae-fav-btn ${favoriteAnim?'pop':''}`} onClick={handleFavoriteClick}>
             <Heart size={15} style={{ fill:is_favorited?'#ef4444':'none', color:is_favorited?'#ef4444':'#6b6560', transition:'all 0.2s' }} />
           </button>
+
+          {/* Guest login prompt */}
+          <AnimatePresence>
+            {showLoginPrompt && (
+              <motion.div className="lehae-login-prompt"
+                initial={{ opacity:0, y:-8, scale:0.95 }}
+                animate={{ opacity:1, y:0, scale:1 }}
+                exit={{ opacity:0, y:-8, scale:0.95 }}
+                transition={{ duration:0.18 }}
+                onClick={e => e.stopPropagation()}>
+                <span>Sign in to save favourites</span>
+                <button className="lehae-login-prompt-btn" onClick={goToLogin}>
+                  <LogIn size={11}/> Sign in
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Image dots */}
           {allImages.length > 1 && (
