@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -65,10 +65,11 @@ const Register = () => {
         <div className="absolute inset-0 opacity-10"
           style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #d4a96a 0%, transparent 50%)' }} />
         <div className="relative z-10">
-          <a href="/" style={{ display:'flex',alignItems:'center',gap:10,textDecoration:'none' }}>
+          {/* FIX: was <a href="/">, forced a full page reload — now uses React Router Link */}
+          <Link to="/" style={{ display:'flex',alignItems:'center',gap:10,textDecoration:'none' }}>
             <span style={{ fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:'#fff' }}>Lehae</span>
             <span style={{ width:7,height:7,borderRadius:'50%',background:'#d4a96a' }} />
-          </a>
+          </Link>
         </div>
         <div className="relative z-10">
           <p style={{ fontFamily:"'Playfair Display',serif",fontSize:'clamp(1.8rem,3vw,2.6rem)',fontWeight:700,color:'#fff',lineHeight:1.2,marginBottom:20 }}>
@@ -163,7 +164,8 @@ const Register = () => {
 
           <p className="mt-6 text-center text-sm" style={{ color:'#9c9080' }}>
             {t('already_a_member')}{' '}
-            <a href="/login" style={{ color:'#c4a882',textDecoration:'none',fontWeight:500 }}>{t('login_now')}</a>
+            {/* FIX: was <a href="/login">, forced a full page reload */}
+            <Link to="/login" style={{ color:'#c4a882',textDecoration:'none',fontWeight:500 }}>{t('login_now')}</Link>
           </p>
         </div>
       </motion.div>
