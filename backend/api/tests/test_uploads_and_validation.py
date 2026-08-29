@@ -11,6 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from PIL import Image
 
 from api.models import Property, UserProfile
 
@@ -26,12 +27,17 @@ def auth_header(user):
     return {'HTTP_AUTHORIZATION': f'Bearer {token}'}
 
 
-# Minimal valid 1x1 PNG, for real-file tests
-VALID_PNG_BYTES = (
-    b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
-    b'\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0'
-    b'\x00\x00\x03\x01\x01\x00\x18\xdd\x8d\xb0\x00\x00\x00\x00IEND\xaeB`\x82'
-)
+def make_real_png(size=(10, 10), color='red'):
+    """
+    Generate a genuinely valid, Pillow-decodable PNG at test time — rather
+    than hardcoding raw bytes, which are fragile and can fail Pillow's own
+    internal validation (DRF's ImageField re-decodes the file after our
+    magic-byte check passes) even when the magic bytes themselves are correct.
+    """
+    buf = BytesIO()
+    Image.new('RGB', size, color=color).save(buf, format='PNG')
+    buf.seek(0)
+    return buf.read()
 
 
 class ImageUploadValidationTests(APITestCase):
@@ -42,11 +48,14 @@ class ImageUploadValidationTests(APITestCase):
         )
 
     def test_valid_png_is_accepted(self):
-        image = SimpleUploadedFile('test.png', VALID_PNG_BYTES, content_type='image/png')
+        image = SimpleUploadedFile('test.png', make_real_png(), content_type='image/png')
         response = self.client.post('/api/property-images/', {
             'property_id': self.property.id, 'image': image,
         }, format='multipart', **auth_header(self.landlord))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.status_code, status.HTTP_201_CREATED,
+            f"Valid PNG upload was rejected: {response.data}"
+        )
 
     def test_fake_image_with_spoofed_content_type_rejected(self):
         """
@@ -63,7 +72,8 @@ class ImageUploadValidationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_oversized_image_rejected(self):
-        big_bytes = b'\x89PNG\r\n\x1a\n' + b'0' * (5 * 1024 * 1024 + 1)
+        # Real PNG header/structure, padded past the 5MB limit
+        big_bytes = make_real_png(size=(10, 10)) + b'0' * (5 * 1024 * 1024 + 1)
         big_image = SimpleUploadedFile('big.png', big_bytes, content_type='image/png')
         response = self.client.post('/api/property-images/', {
             'property_id': self.property.id, 'image': big_image,
@@ -72,7 +82,7 @@ class ImageUploadValidationTests(APITestCase):
 
     def test_non_owner_cannot_upload_image_to_property(self):
         other_landlord = make_user('other_upload_landlord')
-        image = SimpleUploadedFile('test.png', VALID_PNG_BYTES, content_type='image/png')
+        image = SimpleUploadedFile('test.png', make_real_png(), content_type='image/png')
         response = self.client.post('/api/property-images/', {
             'property_id': self.property.id, 'image': image,
         }, format='multipart', **auth_header(other_landlord))

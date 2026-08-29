@@ -67,6 +67,12 @@ class NonPaginatedEndpointShapeTests(APITestCase):
     """
     def setUp(self):
         self.tenant = make_user('nonpag_tenant', is_landlord=False)
+        # FIX: SupportMessageView requires at least one staff user to exist
+        # (it routes tenant messages to "the admin" — first staff user found).
+        # Without one, the endpoint correctly returns 503 "Support not
+        # available yet." — that's the app behaving correctly, the test was
+        # just missing this fixture.
+        self.admin = make_user('nonpag_admin', is_staff=True)
 
     def test_conversations_returns_plain_list(self):
         response = self.client.get('/api/conversations/', **auth_header(self.tenant))
@@ -77,3 +83,9 @@ class NonPaginatedEndpointShapeTests(APITestCase):
         response = self.client.get('/api/support/', **auth_header(self.tenant))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.data, list)
+
+    def test_support_returns_503_when_no_admin_exists(self):
+        """The other side of the fix above — confirm the 503 path itself works."""
+        User.objects.filter(is_staff=True).delete()
+        response = self.client.get('/api/support/', **auth_header(self.tenant))
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
