@@ -12,11 +12,13 @@ from .views import (
     ViewingRequestListCreateView, ViewingRequestDetailView,
     ReviewListCreateView,
 )
+from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
     # Auth
     path('register/',                UserRegistrationView.as_view(),   name='register'),
     path('token/',                   UserLoginView.as_view(),           name='token'),
+    path('token/refresh/',           TokenRefreshView.as_view(),        name='token_refresh'),
     path('profile/',                 ProfileView.as_view(),             name='profile'),
 
     # Properties
