@@ -16,3 +16,4 @@ sqlparse==0.5.3
 whitenoise==6.9.0
 django-storages==1.14.4
 boto3==1.35.36
+django-csp==3.8

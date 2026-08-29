@@ -185,6 +185,61 @@ STORAGES = {
     },
 }
 
+# ── Content Security Policy ─────────────────────────────────────────────────
+# Restricts which sources the browser is allowed to load scripts, styles,
+# images, fonts, and connections from. Mitigates XSS by blocking inline
+# script injection and unauthorized external resource loading.
+INSTALLED_APPS.append('csp')
+MIDDLEWARE.insert(
+    MIDDLEWARE.index('django.middleware.security.SecurityMiddleware') + 1,
+    'csp.middleware.CSPMiddleware',
+)
+
+CONTENT_SECURITY_POLICY = {
+    'DIRECTIVES': {
+        'default-src': ["'self'"],
+
+        # Vercel-hosted frontend is a different origin than this API —
+        # no scripts are served from Django itself except django-admin's own
+        'script-src': ["'self'"],
+
+        # Google Fonts stylesheet + Leaflet's CSS from unpkg
+        'style-src': [
+            "'self'",
+            "'unsafe-inline'",  # required by Leaflet's inline style injection
+            'https://fonts.googleapis.com',
+            'https://unpkg.com',
+        ],
+        'font-src': [
+            "'self'",
+            'https://fonts.gstatic.com',
+        ],
+
+        # Property images and verification docs load from R2; allow any
+        # https image source broadly since property photos are user-uploaded
+        # and admin-approved rather than a fixed list of origins
+        'img-src': [
+            "'self'",
+            'data:',
+            'https://pub-ae3964a70c8346bdb48af038bddc48ac.r2.dev',
+            'https://lehae-monorepo.onrender.com',
+            'https://*.tile.openstreetmap.org',  # Leaflet map tiles
+        ],
+
+        # Leaflet's JS bundle from unpkg, if loaded via <script> tag
+        # rather than npm-bundled (adjust/remove if Leaflet is npm-imported)
+        'connect-src': [
+            "'self'",
+            'https://lehae-monorepo.onrender.com',
+            'https://pub-ae3964a70c8346bdb48af038bddc48ac.r2.dev',
+        ],
+
+        'frame-ancestors': ["'none'"],  # equivalent to X-Frame-Options: DENY
+        'base-uri': ["'self'"],
+        'form-action': ["'self'"],
+    },
+}
+
 # ── CORS ───────────────────────────────────────────────────────────────────────
 if PRODUCTION:
     CORS_ALLOW_ALL_ORIGINS = False
