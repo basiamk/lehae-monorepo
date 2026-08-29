@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -59,6 +60,7 @@ const PropertyMap = ({
 }) => {
   const containerRef = useRef(null);
   const mapRef       = useRef(null);
+  const navigate      = useNavigate();
 
   // Normalise — support both prop names
   const resolvedSingle = property || singleProperty;
@@ -104,12 +106,28 @@ const PropertyMap = ({
             <p style="font-weight:600;font-size:14px;color:#1c1a17;margin:0 0 4px;">${p.area}, ${p.district}</p>
             <p style="font-size:13px;color:#d4a96a;font-weight:700;margin:0 0 8px;">M ${Number(p.rental_amount).toLocaleString()} / mo</p>
             ${p.bedrooms ? `<p style="font-size:11px;color:#7a7060;margin:0 0 8px;">${p.bedrooms} bed · ${p.property_type || ''}</p>` : ''}
-            <a href="/properties/${p.id}"
+            <a href="/properties/${p.id}" data-property-id="${p.id}" class="lehae-popup-view-link"
               style="display:inline-block;padding:6px 14px;background:#1c1a17;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;">
               View listing →
             </a>
           </div>`)
       );
+
+      // FIX: this <a> lives inside a raw HTML string Leaflet injects
+      // directly into the DOM (setContent) — it is completely outside
+      // React's render tree, so a <Link> component cannot be used here.
+      // Instead, intercept the click after the popup opens and navigate
+      // via React Router's navigate() so it doesn't force a full page reload.
+      marker.on('popupopen', () => {
+        const popupEl = marker.getPopup()?.getElement();
+        const link = popupEl?.querySelector('.lehae-popup-view-link');
+        if (link) {
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            navigate(`/properties/${p.id}`);
+          });
+        }
+      });
 
       if (onPropertyClick) marker.on('click', () => onPropertyClick(p.id));
     });
