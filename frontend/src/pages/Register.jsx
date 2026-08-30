@@ -3,7 +3,16 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Eye, EyeOff, ArrowRight, Building2, User } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Building2, User, Check, X } from 'lucide-react';
+
+// FIX: mirrors the backend's AUTH_PASSWORD_VALIDATORS so users see
+// requirements live instead of only finding out after submitting.
+const PASSWORD_RULES = [
+  { key: 'length', label: 'At least 7 characters', test: (p) => p.length >= 7 },
+  { key: 'upper',  label: 'One uppercase letter',   test: (p) => /[A-Z]/.test(p) },
+  { key: 'lower',  label: 'One lowercase letter',   test: (p) => /[a-z]/.test(p) },
+  { key: 'digit',  label: 'One number',             test: (p) => /\d/.test(p) },
+];
 
 const Register = () => {
   const { t } = useLanguage();
@@ -14,6 +23,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -21,11 +31,15 @@ const Register = () => {
     setError('');
   };
 
+  const passwordChecks = PASSWORD_RULES.map(rule => ({ ...rule, passed: rule.test(formData.password) }));
+  const passwordValid  = passwordChecks.every(c => c.passed);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (formData.password !== formData.confirmPassword) { setError(t('passwords_do_not_match')); return; }
     if (!/\S+@\S+\.\S+/.test(formData.email)) { setError(t('invalid_email_format')); return; }
+    if (!passwordValid) { setError('Please meet all password requirements.'); return; }
     setLoading(true);
     try {
       await register(formData.username, formData.email, formData.password, formData.isLandlord);
@@ -57,6 +71,9 @@ const Register = () => {
         }
         .role-card.selected { border-color: #1c1a17; background: #faf7f3; }
         .role-card:hover { border-color: #c4bdb4; }
+        .pw-rule { display: flex; align-items: center; gap: 6px; font-size: 12px; transition: color 0.15s; }
+        .pw-rule.passed { color: #22c55e; }
+        .pw-rule.pending { color: #b5a898; }
       `}</style>
 
       {/* Left brand panel */}
@@ -65,7 +82,6 @@ const Register = () => {
         <div className="absolute inset-0 opacity-10"
           style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #d4a96a 0%, transparent 50%)' }} />
         <div className="relative z-10">
-          {/* FIX: was <a href="/">, forced a full page reload — now uses React Router Link */}
           <Link to="/" style={{ display:'flex',alignItems:'center',gap:10,textDecoration:'none' }}>
             <span style={{ fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:'#fff' }}>Lehae</span>
             <span style={{ width:7,height:7,borderRadius:'50%',background:'#d4a96a' }} />
@@ -133,12 +149,28 @@ const Register = () => {
               <label className="auth-label">{t('password')}</label>
               <div style={{ position:'relative' }}>
                 <input type={showPassword?'text':'password'} name="password" value={formData.password}
-                  onChange={handleChange} required className="auth-input" style={{ paddingRight:44 }} />
+                  onChange={handleChange}
+                  onFocus={() => setPasswordFocused(true)}
+                  required className="auth-input" style={{ paddingRight:44 }} />
                 <button type="button" onClick={()=>setShowPassword(!showPassword)}
                   style={{ position:'absolute',right:13,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#c4bdb4',padding:0 }}>
                   {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
                 </button>
               </div>
+
+              {/* FIX: live password requirement checklist — shown once the
+                  field is focused, so users see exactly what's missing as
+                  they type instead of only finding out after submitting. */}
+              {(passwordFocused || formData.password) && (
+                <div style={{ marginTop:8, padding:'10px 12px', background:'#faf7f3', borderRadius:10, border:'1px solid #ede8e0', display:'flex', flexDirection:'column', gap:5 }}>
+                  {passwordChecks.map(({ key, label, passed }) => (
+                    <div key={key} className={`pw-rule ${passed ? 'passed' : 'pending'}`}>
+                      {passed ? <Check size={12}/> : <X size={12} style={{ opacity:0.4 }}/>}
+                      {label}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="auth-label">{t('confirm_password')}</label>
@@ -150,6 +182,9 @@ const Register = () => {
                   {showConfirm ? <EyeOff size={16}/> : <Eye size={16}/>}
                 </button>
               </div>
+              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                <p style={{ fontSize:11.5, color:'#dc2626', marginTop:6 }}>Passwords don't match</p>
+              )}
             </div>
 
             <button type="submit" disabled={loading}
@@ -164,7 +199,6 @@ const Register = () => {
 
           <p className="mt-6 text-center text-sm" style={{ color:'#9c9080' }}>
             {t('already_a_member')}{' '}
-            {/* FIX: was <a href="/login">, forced a full page reload */}
             <Link to="/login" style={{ color:'#c4a882',textDecoration:'none',fontWeight:500 }}>{t('login_now')}</Link>
           </p>
         </div>

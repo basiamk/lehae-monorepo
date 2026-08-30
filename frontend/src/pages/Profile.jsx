@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../utils/axios.js';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Edit2, Check, X, Shield, KeyRound, Trash2 } from 'lucide-react';
+import { Edit2, Check, X, Shield, KeyRound, Trash2, Eye, EyeOff } from 'lucide-react';
 import LandlordVerification from '../components/LandlordVerification.jsx';
 import SupportChat from '../components/SupportChat.jsx';
+
+// FIX: mirrors backend AUTH_PASSWORD_VALIDATORS so users see requirements live
+const PASSWORD_RULES = [
+  { key: 'length', label: 'At least 7 characters', test: (p) => p.length >= 7 },
+  { key: 'upper',  label: 'One uppercase letter',   test: (p) => /[A-Z]/.test(p) },
+  { key: 'lower',  label: 'One lowercase letter',   test: (p) => /[a-z]/.test(p) },
+  { key: 'digit',  label: 'One number',             test: (p) => /\d/.test(p) },
+];
 
 const Profile = () => {
   const { t } = useLanguage();
@@ -19,6 +27,17 @@ const Profile = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', bio: '' });
   const [errors, setErrors] = useState({});
   const [updateSuccess, setUpdateSuccess] = useState(false);
+
+  // FIX: change-password panel state — wired to the existing "Change" button
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword]         = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw]         = useState(false);
+  const [pwError, setPwError]     = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
 
   useEffect(() => { fetchProfile(); }, []);
 
@@ -65,6 +84,40 @@ const Profile = () => {
     }
   };
 
+  // FIX: change password submit handler
+  const passwordChecks = PASSWORD_RULES.map(rule => ({ ...rule, passed: rule.test(newPassword) }));
+  const passwordValid  = passwordChecks.every(c => c.passed);
+
+  const closePasswordForm = () => {
+    setShowPasswordForm(false);
+    setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword('');
+    setPwError(''); setPwSuccess('');
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPwError(''); setPwSuccess('');
+
+    if (newPassword !== confirmNewPassword) { setPwError("New passwords don't match."); return; }
+    if (!passwordValid) { setPwError('Please meet all password requirements.'); return; }
+
+    setPwLoading(true);
+    try {
+      await axiosInstance.post('/api/change-password/', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setPwSuccess('Password changed successfully.');
+      setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword('');
+      setTimeout(() => { setPwSuccess(''); setShowPasswordForm(false); }, 2500);
+    } catch (err) {
+      const msg = err.response?.data?.error;
+      setPwError(Array.isArray(msg) ? msg.join(' ') : (msg || 'Failed to change password.'));
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner size="lg" /></div>;
   if (error && !profile) return (
     <div className="text-center py-16">
@@ -91,6 +144,10 @@ const Profile = () => {
         .prof-card { background:#fff; border:1px solid #ede8e0; border-radius:20px; }
         .settings-row { display:flex; align-items:center; justify-content:space-between; padding:16px 0; border-bottom:1px solid #f3ede6; }
         .settings-row:last-child { border-bottom:none; }
+        .pw-eye { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#c4bdb4; padding:0; }
+        .pw-rule { display:flex; align-items:center; gap:6px; font-size:11.5px; transition:color 0.15s; }
+        .pw-rule.passed { color:#22c55e; }
+        .pw-rule.pending { color:#b5a898; }
       `}</style>
 
       {/* Header */}
@@ -197,8 +254,96 @@ const Profile = () => {
         {/* Account settings */}
         <motion.div className="prof-card p-8" initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{delay:0.1}}>
           <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:'#1c1a17',marginBottom:24}}>{t('account_settings')}</h2>
+
+          {/* Change Password row — FIX: now wired to a real inline form */}
+          <div className="settings-row" style={{ flexDirection:'column', alignItems:'stretch' }}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                <div style={{width:36,height:36,borderRadius:10,background:'#faf7f3',border:'1px solid #ede8e0',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <KeyRound size={15} style={{color:'#7a7060'}} />
+                </div>
+                <div>
+                  <p style={{fontSize:14,fontWeight:500,color:'#1c1a17'}}>{t('change_password')}</p>
+                  <p style={{fontSize:12,color:'#9c9080',marginTop:2}}>{t('update_your_password_regularly_to_keep_your_account_secure')}</p>
+                </div>
+              </div>
+              <button onClick={() => showPasswordForm ? closePasswordForm() : setShowPasswordForm(true)}
+                style={{padding:'7px 14px',borderRadius:10,border:'1px solid #ede8e0',background:'#fff',color:'#7a7060',fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:"'DM Sans',sans-serif",flexShrink:0,marginLeft:16}}>
+                {showPasswordForm ? t('cancel') : t('change')}
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {showPasswordForm && (
+                <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }} transition={{ duration:0.2 }}>
+                  <form onSubmit={handlePasswordSubmit} style={{ paddingTop:18, display:'flex', flexDirection:'column', gap:14 }}>
+
+                    <div>
+                      <label className="prof-label">Current Password</label>
+                      <div style={{ position:'relative' }}>
+                        <input type={showCurrentPw ? 'text' : 'password'} value={currentPassword}
+                          onChange={e => setCurrentPassword(e.target.value)} required
+                          className="prof-input" style={{ paddingRight:40 }} autoComplete="current-password" />
+                        <button type="button" className="pw-eye" onClick={() => setShowCurrentPw(s => !s)}>
+                          {showCurrentPw ? <EyeOff size={15}/> : <Eye size={15}/>}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="prof-label">New Password</label>
+                      <div style={{ position:'relative' }}>
+                        <input type={showNewPw ? 'text' : 'password'} value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)} required
+                          className="prof-input" style={{ paddingRight:40 }} autoComplete="new-password" />
+                        <button type="button" className="pw-eye" onClick={() => setShowNewPw(s => !s)}>
+                          {showNewPw ? <EyeOff size={15}/> : <Eye size={15}/>}
+                        </button>
+                      </div>
+                      {newPassword && (
+                        <div style={{ marginTop:8, padding:'9px 11px', background:'#faf7f3', borderRadius:9, border:'1px solid #ede8e0', display:'flex', flexDirection:'column', gap:4 }}>
+                          {passwordChecks.map(({ key, label, passed }) => (
+                            <div key={key} className={`pw-rule ${passed ? 'passed' : 'pending'}`}>
+                              {passed ? <Check size={11}/> : <X size={11} style={{ opacity:0.4 }}/>}
+                              {label}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="prof-label">Confirm New Password</label>
+                      <input type={showNewPw ? 'text' : 'password'} value={confirmNewPassword}
+                        onChange={e => setConfirmNewPassword(e.target.value)} required
+                        className="prof-input" autoComplete="new-password" />
+                      {confirmNewPassword && newPassword !== confirmNewPassword && (
+                        <p style={{ fontSize:11, color:'#dc2626', marginTop:5 }}>Passwords don't match</p>
+                      )}
+                    </div>
+
+                    {pwError && (
+                      <div style={{ padding:'10px 14px', borderRadius:10, background:'#fef2f2', border:'1px solid #fecaca', color:'#dc2626', fontSize:12.5 }}>
+                        {pwError}
+                      </div>
+                    )}
+                    {pwSuccess && (
+                      <div style={{ padding:'10px 14px', borderRadius:10, background:'#f0fdf4', border:'1px solid #86efac', color:'#16a34a', fontSize:12.5 }}>
+                        {pwSuccess}
+                      </div>
+                    )}
+
+                    <button type="submit" disabled={pwLoading}
+                      style={{ padding:'11px', borderRadius:11, background: pwLoading ? '#c4bdb4' : '#1c1a17', color:'#fff', border:'none', fontSize:13, fontWeight:500, cursor: pwLoading ? 'not-allowed' : 'pointer', fontFamily:"'DM Sans',sans-serif", alignSelf:'flex-start', padding:'10px 24px' }}>
+                      {pwLoading ? 'Updating…' : 'Update Password'}
+                    </button>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {[
-            {icon:KeyRound, title:t('change_password'), desc:t('update_your_password_regularly_to_keep_your_account_secure'), label:t('change'), color:'#7a7060'},
             {icon:Shield,   title:t('two_factor_authentication'), desc:t('add_an_extra_layer_of_security_to_your_account'), label:t('enable'), color:'#7a7060'},
             {icon:Trash2,   title:t('delete_account'), desc:t('permanently_delete_your_account_and_all_associated_data'), label:t('delete'), color:'#dc2626', danger:true},
           ].map(({icon:Icon,title,desc,label,color,danger})=>(
