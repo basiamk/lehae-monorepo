@@ -27,6 +27,9 @@ from .models import (
 )
 import logging
 import concurrent.futures
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +178,35 @@ class UserLoginView(APIView):
 
 
 # ── Profile ────────────────────────────────────────────────────────────────────
+class ChangePasswordView(APIView):
+    """Authenticated user changes their own password."""
+    permission_classes = [IsAuthenticated]
+ 
+    def post(self, request):
+        current_password = request.data.get('current_password', '')
+        new_password      = request.data.get('new_password', '')
+ 
+        if not current_password or not new_password:
+            return Response(
+                {'error': 'Both current_password and new_password are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        user = request.user
+        if not user.check_password(current_password):
+            return Response(
+                {'error': 'Current password is incorrect.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as e:
+            return Response({'error': list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+ 
+        user.set_password(new_password)
+        user.save()
+        return Response({'message': 'Password changed successfully.'})
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]

@@ -6,6 +6,9 @@ from .models import (
     PropertyImage, Message, ViewingRequest, Review,
     RentalApplication, LandlordVerification,
 )
+from django.contrib.auth.password_validation import validate_password as django_validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 
 
 # Used for reads and for editing an existing profile via PATCH/PUT.
@@ -29,6 +32,21 @@ class UserSerializer(serializers.ModelSerializer):
             'username': {'required': False},
             'email':    {'required': False},
         }
+    def validate_password(self, value):
+        """
+        FIX: User.objects.create_user() never calls Django's password
+        validators on its own — AUTH_PASSWORD_VALIDATORS only runs when
+        something explicitly calls validate_password(). DRF serializers
+        don't do this automatically the way Django forms do, so this
+        was silently never enforced. This wires it in properly and
+        converts Django's ValidationError into DRF's expected format.
+        """
+        try:
+            django_validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(list(e.messages))
+        return value
+
 
     def create(self, validated_data):
         # FIX: UserProfileSerializer marks is_landlord as read_only (to stop

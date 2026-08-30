@@ -88,9 +88,15 @@ else:
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 7},  # matches "must be 7 characters" from your notes
+    },
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {'NAME': 'api.validators.UppercaseValidator'},
+    {'NAME': 'api.validators.LowercaseValidator'},
+    {'NAME': 'api.validators.DigitValidator'},
 ]
 
 LANGUAGE_CODE = 'en-us'

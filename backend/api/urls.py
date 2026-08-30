@@ -13,6 +13,7 @@ from .views import (
     ReviewListCreateView,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
+from .views import ChangePasswordView
 
 urlpatterns = [
     # Auth
@@ -95,4 +96,7 @@ from .views import PasswordResetRequestView, PasswordResetConfirmView
 urlpatterns += [
     path('password-reset/',         PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+]
+urlpatterns += [
+    path('change-password/', ChangePasswordView.as_view(), name='change-password'),
 ]
