@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import axiosInstance from '../utils/axios.js';
 import {
   Home, MessageSquare, Heart, FileText,
-  Plus, AlertCircle, ChevronRight, Clock
+  Plus, AlertCircle, ChevronRight, Clock, ShieldCheck, ShieldAlert
 } from 'lucide-react';
 
 // Helper: handles both paginated {results:[]} and plain array
@@ -26,6 +26,10 @@ const Dashboard = () => {
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState('');
 
+  // FIX: verification status for the "Get Verified" dashboard CTA
+  const [verification, setVerification]           = useState(null);
+  const [verificationLoading, setVerificationLoading] = useState(true);
+
   useEffect(() => {
     if (!user) return;
     const fetchDashboardData = async () => {
@@ -33,13 +37,11 @@ const Dashboard = () => {
         setLoading(true);
         setError('');
 
-        // FIX: use axiosInstance — not raw axios with hardcoded localhost:8000
         const dashboardRes = await axiosInstance.get('/api/dashboard/');
         setStats(dashboardRes.data.stats || []);
         setRecentActivity(dashboardRes.data.recentActivity || []);
         setRecentApps(dashboardRes.data.recentApplications || []);
 
-        // FIX: messages now paginated — extract results array
         const messagesRes = await axiosInstance.get('/api/messages/');
         const messagesList = extractList(messagesRes.data);
         const unread = messagesList
@@ -55,6 +57,22 @@ const Dashboard = () => {
       }
     };
     fetchDashboardData();
+  }, [user]);
+
+  // FIX: fetch verification status for landlords only
+  useEffect(() => {
+    if (!user?.is_landlord) { setVerificationLoading(false); return; }
+    const fetchVerification = async () => {
+      try {
+        const res = await axiosInstance.get('/api/verification/');
+        setVerification(res.data);
+      } catch {
+        setVerification(null);
+      } finally {
+        setVerificationLoading(false);
+      }
+    };
+    fetchVerification();
   }, [user]);
 
   const isLandlord = user?.is_landlord || user?.is_staff;
@@ -99,6 +117,79 @@ const Dashboard = () => {
     { label:'Messages',          icon:MessageSquare,path:'/messages',        color:'#8b5cf6' },
   ];
 
+  // FIX: verification CTA content — different message per status.
+  // Only rendered for landlords (not admin, not tenant) and only when
+  // there's something actionable or worth surfacing — an approved
+  // verification doesn't need a persistent banner cluttering the dashboard.
+  const renderVerificationBanner = () => {
+    if (!user?.is_landlord || user?.is_staff || verificationLoading) return null;
+
+    const status = verification?.status; // undefined | 'not_submitted' | 'pending' | 'approved' | 'rejected'
+
+    if (status === 'approved' || user?.is_verified) return null; // nothing to prompt
+
+    if (!verification || status === 'not_submitted') {
+      return (
+        <motion.div initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}
+          style={{ background:'linear-gradient(135deg,#1c1a17,#2c2a27)', borderRadius:20, padding:'24px 28px', marginBottom:24, display:'flex', alignItems:'center', justifyContent:'space-between', gap:20, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+            <div style={{ width:48, height:48, borderRadius:14, background:'rgba(212,169,106,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <ShieldCheck size={22} style={{ color:'#d4a96a' }}/>
+            </div>
+            <div>
+              <p style={{ fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:700, color:'#fff', margin:0 }}>Get your verified badge</p>
+              <p style={{ fontSize:13, color:'rgba(255,255,255,0.55)', margin:'4px 0 0', fontFamily:"'DM Sans',sans-serif" }}>
+                Verified landlords get more enquiries. Takes 2 minutes — just your ID and phone number.
+              </p>
+            </div>
+          </div>
+          <button onClick={() => navigate('/profile')}
+            style={{ padding:'11px 22px', borderRadius:12, background:'#d4a96a', color:'#1c1a17', border:'none', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", flexShrink:0, whiteSpace:'nowrap' }}>
+            Get Verified
+          </button>
+        </motion.div>
+      );
+    }
+
+    if (status === 'pending') {
+      return (
+        <motion.div initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}
+          style={{ background:'rgba(59,130,246,0.06)', border:'1px solid rgba(59,130,246,0.2)', borderRadius:20, padding:'18px 24px', marginBottom:24, display:'flex', alignItems:'center', gap:14 }}>
+          <Clock size={20} style={{ color:'#2563eb', flexShrink:0 }}/>
+          <div>
+            <p style={{ fontSize:14, fontWeight:600, color:'#1c1a17', margin:0 }}>Verification under review</p>
+            <p style={{ fontSize:12.5, color:'#7a7060', margin:'2px 0 0', fontFamily:"'DM Sans',sans-serif" }}>
+              We're reviewing your documents — usually takes 24 hours.
+            </p>
+          </div>
+        </motion.div>
+      );
+    }
+
+    if (status === 'rejected') {
+      return (
+        <motion.div initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}
+          style={{ background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:20, padding:'18px 24px', marginBottom:24, display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+            <ShieldAlert size={20} style={{ color:'#dc2626', flexShrink:0 }}/>
+            <div>
+              <p style={{ fontSize:14, fontWeight:600, color:'#1c1a17', margin:0 }}>Verification needs attention</p>
+              <p style={{ fontSize:12.5, color:'#7a7060', margin:'2px 0 0', fontFamily:"'DM Sans',sans-serif" }}>
+                {verification?.admin_note || 'Your last submission was declined. Please resubmit with updated documents.'}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => navigate('/profile')}
+            style={{ padding:'9px 18px', borderRadius:10, background:'#1c1a17', color:'#fff', border:'none', fontSize:12.5, fontWeight:500, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", flexShrink:0 }}>
+            Resubmit
+          </button>
+        </motion.div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div style={{ minHeight:'100vh', background:'#faf7f3', fontFamily:"'DM Sans',sans-serif" }}>
       <style>{`
@@ -124,6 +215,10 @@ const Dashboard = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
+
+        {/* FIX: verification CTA — appears right below header, above stats,
+            so it's the first thing an unverified landlord sees */}
+        {renderVerificationBanner()}
 
         {/* Stat cards */}
         <div className="dash-stat-grid">
