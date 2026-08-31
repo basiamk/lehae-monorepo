@@ -21,10 +21,17 @@ const typeLabel = {
 const PropertyCard = ({ property, onFavoriteToggle }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [imgIndex, setImgIndex]           = useState(0);
   const [favoriteAnim, setFavoriteAnim]   = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // FIX: role-based UI trimming — favouriting isn't a meaningful action for
+  // landlords or admin (there's no Favourites tab left for them to review
+  // saved properties in), so hide the heart entirely rather than leaving a
+  // clickable control that leads nowhere. Guests still see it, since
+  // clicking it is what triggers the "sign in to save favourites" prompt.
+  const canFavorite = !isAuthenticated || (!user?.is_landlord && !user?.is_staff);
 
   const {
     id, area, district, rental_amount, is_favorited,
@@ -146,12 +153,15 @@ const PropertyCard = ({ property, onFavoriteToggle }) => {
             </div>
           )}
 
-          {/* Favorite */}
-          <button className={`lehae-fav-btn ${favoriteAnim?'pop':''}`} onClick={handleFavoriteClick}>
-            <Heart size={15} style={{ fill:is_favorited?'#ef4444':'none', color:is_favorited?'#ef4444':'#6b6560', transition:'all 0.2s' }} />
-          </button>
+          {/* Favorite — hidden entirely for landlords/admin, see canFavorite above */}
+          {canFavorite && (
+            <button className={`lehae-fav-btn ${favoriteAnim?'pop':''}`} onClick={handleFavoriteClick}>
+              <Heart size={15} style={{ fill:is_favorited?'#ef4444':'none', color:is_favorited?'#ef4444':'#6b6560', transition:'all 0.2s' }} />
+            </button>
+          )}
 
           {/* Guest login prompt */}
+          {canFavorite && (
           <AnimatePresence>
             {showLoginPrompt && (
               <motion.div className="lehae-login-prompt"
@@ -167,6 +177,7 @@ const PropertyCard = ({ property, onFavoriteToggle }) => {
               </motion.div>
             )}
           </AnimatePresence>
+          )}
 
           {/* Image dots */}
           {allImages.length > 1 && (

@@ -51,17 +51,37 @@ const Navbar = () => {
     };
   }, [isAuthenticated, user, location.pathname]);
 
+  // FIX: role-based nav trimming.
+  // - Tenant: full toolkit — Dashboard, Favourites, Messages, Alerts, Applications
+  // - Landlord: Dashboard, Messages only — no Favourites/Alerts/Applications
+  //   (a landlord isn't shopping for a rental, these tabs led nowhere useful)
+  // - Admin: Messages, Admin only — no separate Dashboard (the Admin dashboard
+  //   IS their dashboard) and no Favourites/Alerts/Applications either
+  const isTenant   = isAuthenticated && !user?.is_landlord && !user?.is_staff;
+  const isLandlord = isAuthenticated && user?.is_landlord && !user?.is_staff;
+  const isAdmin    = isAuthenticated && user?.is_staff;
+
   const navLinks = [
     { path: '/',           label: t('home') },
     { path: '/properties', label: t('properties') },
-    ...(isAuthenticated ? [
-      { path: '/dashboard',      label: t('dashboard') },
-      { path: '/favorites',      label: t('favorites') },
-      { path: '/messages',       label: t('messages'), badge: unreadCount },
-      { path: '/saved-searches', label: 'Alerts' },
-      ...(!user?.is_landlord && !user?.is_staff ? [{ path: '/my-applications', label: 'Applications' }] : []),
-      ...(user?.is_staff ? [{ path: '/admin', label: 'Admin' }] : []),
-    ] : []),
+
+    // Dashboard — tenants and landlords only, not admin
+    ...(isTenant || isLandlord ? [{ path: '/dashboard', label: t('dashboard') }] : []),
+
+    // Favourites — tenants only
+    ...(isTenant ? [{ path: '/favorites', label: t('favorites') }] : []),
+
+    // Messages — everyone once logged in
+    ...(isAuthenticated ? [{ path: '/messages', label: t('messages'), badge: unreadCount }] : []),
+
+    // Alerts (saved searches) — tenants only
+    ...(isTenant ? [{ path: '/saved-searches', label: 'Alerts' }] : []),
+
+    // My Applications — tenants only
+    ...(isTenant ? [{ path: '/my-applications', label: 'Applications' }] : []),
+
+    // Admin dashboard — admin only
+    ...(isAdmin ? [{ path: '/admin', label: 'Admin' }] : []),
   ];
 
   const isActive = (path) => location.pathname === path;

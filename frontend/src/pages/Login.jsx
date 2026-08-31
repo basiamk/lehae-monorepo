@@ -30,8 +30,11 @@ const Login = () => {
     }
     setLoading(true);
     try {
-      await login(formData.usernameOrEmail, formData.password);
-      navigate('/dashboard');
+      const loggedInUser = await login(formData.usernameOrEmail, formData.password);
+      // FIX: admin no longer has a Dashboard nav link (Admin dashboard IS
+      // their dashboard) — send them straight there instead of /dashboard,
+      // which would render the tenant/landlord-style page for them.
+      navigate(loggedInUser?.is_staff ? '/admin' : '/dashboard');
     } catch (err) {
       const errorMsg = err.error || err.detail || err.non_field_errors?.[0] || t('invalid_username_or_password');
       setError(errorMsg);
