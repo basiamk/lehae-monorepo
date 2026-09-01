@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../utils/axios.js';
 import { Upload, X, Check, AlertCircle, ChevronDown, ArrowRight, ArrowLeft, MapPin, Home, Banknote, Zap, Camera, Phone } from 'lucide-react';
+import LocationPicker from '../components/LocationPicker.jsx';
 
 const DISTRICTS = ['Maseru','Leribe','Berea','Mafeteng',"Mohale's Hoek",'Quthing',"Qacha's Nek",'Mokhotlong','Thaba-Tseka','Butha-Buthe'];
 const PROPERTY_TYPES = [{value:'house',label:'House'},{value:'apartment',label:'Apartment'},{value:'room',label:'Room'},{value:'cottage',label:'Cottage'},{value:'studio',label:'Studio'},{value:'townhouse',label:'Townhouse'}];
@@ -49,7 +50,7 @@ const AddProperty = () => {
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    area:'', district:'', rental_amount:'', deposit:'', viewing_fee:'',
+    area:'', district:'', latitude:'', longitude:'', rental_amount:'', deposit:'', viewing_fee:'',
     status:'vacant', description:'', property_type:'house',
     bedrooms:'', bathrooms:'', furnished:false, parking:false,
     pet_friendly:false, security:false, water_supply:'constant',
@@ -237,6 +238,24 @@ const AddProperty = () => {
                   <ChevronDown size={14}/>
                 </div>
               </div>
+
+              {/* FIX: optional map pin — helps tenants find the exact
+                  property location instead of just the district centre.
+                  Skippable; falls back to district-level display if unset. */}
+              {formData.district && (
+                <div>
+                  <label className="ap-label">Exact Location (optional)</label>
+                  <LocationPicker
+                    district={formData.district}
+                    latitude={formData.latitude}
+                    longitude={formData.longitude}
+                    onChange={({ latitude, longitude }) => setFormData(prev => ({ ...prev, latitude, longitude }))}
+                  />
+                  <p style={{fontSize:11.5,color:'#9c9080',marginTop:6,fontFamily:"'DM Sans',sans-serif"}}>
+                    Pinning your exact location helps tenants find your property. If you skip this, we'll just show the general district on the map.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

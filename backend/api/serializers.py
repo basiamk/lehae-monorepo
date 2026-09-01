@@ -141,7 +141,7 @@ class PropertySerializer(serializers.ModelSerializer):
         model  = Property
         fields = [
             'id', 'landlord', 'landlord_username',
-            'area', 'district',
+            'area', 'district', 'latitude', 'longitude',
             'rental_amount', 'deposit', 'viewing_fee',
             'status', 'description',
             'is_favorited', 'image_url', 'images', 'is_approved',
